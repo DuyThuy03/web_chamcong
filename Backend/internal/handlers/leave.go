@@ -1,0 +1,297 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"attendance-system/internal/middleware"
+	"attendance-system/internal/models"
+	"attendance-system/internal/repository"
+	"attendance-system/internal/utils"
+
+	"github.com/gin-gonic/gin"
+)
+
+type LeaveHandler struct {
+	leaveRepo *repository.LeaveRequestRepository
+	userRepo  *repository.UserRepository
+}
+
+func NewLeaveHandler(leaveRepo *repository.LeaveRequestRepository, userRepo *repository.UserRepository) *LeaveHandler {
+	return &LeaveHandler{
+		leaveRepo: leaveRepo,
+		userRepo:  userRepo,
+	}
+}
+
+type CreateLeaveRequest struct {
+	Type                string  `json:"type" binding:"required"`
+	FromDate            string  `json:"from_date" binding:"required"`
+	ToDate              string  `json:"to_date" binding:"required"`
+	Session             *string `json:"session,omitempty"`
+	ExpectedArrivalTime *string `json:"expected_arrival_time,omitempty"`
+	Reason              *string `json:"reason,omitempty"`
+}
+
+func (h *LeaveHandler) Create(c *gin.Context) {
+	var req CreateLeaveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Validate leave type
+	validTypes := map[string]bool{
+		"nghỉ phép":    true,
+		"nghỉ ốm":      true,
+		"đi muộn":      true,
+		"về sớm":       true,
+		"ra ngoài":     true,
+		"công tác":     true,
+		"nghỉ không lương": true,
+	}
+
+	if !validTypes[req.Type] {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave type")
+		return
+	}
+
+	// Parse dates
+	fromDate, err := time.Parse("2006-01-02", req.FromDate)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid from_date format. Use YYYY-MM-DD")
+		return
+	}
+
+	toDate, err := time.Parse("2006-01-02", req.ToDate)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid to_date format. Use YYYY-MM-DD")
+		return
+	}
+
+	if toDate.Before(fromDate) {
+		utils.ErrorResponse(c, http.StatusBadRequest, "to_date must be after or equal to from_date")
+		return
+	}
+
+	userID, _ := middleware.GetUserID(c)
+
+	leaveRequest := &models.LeaveRequest{
+		UserID:   userID,
+		Type:     req.Type,
+		FromDate: fromDate,
+		ToDate:   toDate,
+		Status:   "pending",
+	}
+
+	if req.Session != nil {
+		leaveRequest.Session.String = *req.Session
+		leaveRequest.Session.Valid = true
+	}
+
+	if req.ExpectedArrivalTime != nil {
+		leaveRequest.ExpectedArrivalTime.String = *req.ExpectedArrivalTime
+		leaveRequest.ExpectedArrivalTime.Valid = true
+	}
+
+	if req.Reason != nil {
+		leaveRequest.Reason.String = *req.Reason
+		leaveRequest.Reason.Valid = true
+	}
+
+	err = h.leaveRepo.Create(leaveRequest)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create leave request")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusCreated, leaveRequest)
+}
+
+func (h *LeaveHandler) GetAll(c *gin.Context) {
+	userID, _ := middleware.GetUserID(c)
+	role, _ := middleware.GetUserRole(c)
+	
+	var deptID *int
+	if role == "Trưởng phòng" {
+		id, exists := middleware.GetDepartmentID(c)
+		if exists {
+			deptID = &id
+		}
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	offset := (page - 1) * limit
+
+	requests, total, err := h.leaveRepo.GetAll(userID, role, deptID, limit, offset)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave requests")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK,  gin.H{
+		"requests": requests,
+		"pagination": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *LeaveHandler) GetByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
+		return
+	}
+
+	request, err := h.leaveRepo.GetByID(id)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request")
+		return
+	}
+
+	if request == nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
+		return
+	}
+
+	// Check access permission
+	userID, _ := middleware.GetUserID(c)
+	role, _ := middleware.GetUserRole(c)
+
+	if role == "Nhân viên" && request.UserID != userID {
+		utils.ErrorResponse(c, http.StatusForbidden, "You don't have permission to view this request")
+		return
+	}
+
+	if role == "Trưởng phòng" {
+		// Check if the request user is in the same department
+		requestUser, err := h.userRepo.GetByID(request.UserID)
+		if err != nil || requestUser == nil {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to verify access")
+			return
+		}
+
+		currentUserDeptID, _ := middleware.GetDepartmentID(c)
+		if requestUser.DepartmentID == nil || *requestUser.DepartmentID != currentUserDeptID {
+			utils.ErrorResponse(c, http.StatusForbidden, "You don't have permission to view this request")
+			return
+		}
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, request)
+}
+
+func (h *LeaveHandler) Approve(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
+		return
+	}
+
+	approverID, _ := middleware.GetUserID(c)
+	role, _ := middleware.GetUserRole(c)
+
+	// Check if request exists
+	request, err := h.leaveRepo.GetByID(id)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request")
+		return
+	}
+
+	if request == nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
+		return
+	}
+
+	if request.Status != "pending" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Leave request is already "+request.Status)
+		return
+	}
+
+	// Verify approval permission
+	if role == "Trưởng phòng" {
+		requestUser, err := h.userRepo.GetByID(request.UserID)
+		if err != nil || requestUser == nil {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to verify access")
+			return
+		}
+
+		approverDeptID, _ := middleware.GetDepartmentID(c)
+		if requestUser.DepartmentID == nil || *requestUser.DepartmentID != approverDeptID {
+			utils.ErrorResponse(c, http.StatusForbidden, "You can only approve requests from your department")
+			return
+		}
+	}
+
+	err = h.leaveRepo.UpdateStatus(id, "approved", approverID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to approve leave request")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, nil)
+}
+
+func (h *LeaveHandler) Reject(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
+		return
+	}
+
+	approverID, _ := middleware.GetUserID(c)
+	role, _ := middleware.GetUserRole(c)
+
+	// Check if request exists
+	request, err := h.leaveRepo.GetByID(id)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request")
+		return
+	}
+
+	if request == nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
+		return
+	}
+
+	if request.Status != "pending" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Leave request is already "+request.Status)
+		return
+	}
+
+	// Verify rejection permission
+	if role == "Trưởng phòng" {
+		requestUser, err := h.userRepo.GetByID(request.UserID)
+		if err != nil || requestUser == nil {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to verify access")
+			return
+		}
+
+		approverDeptID, _ := middleware.GetDepartmentID(c)
+		if requestUser.DepartmentID == nil || *requestUser.DepartmentID != approverDeptID {
+			utils.ErrorResponse(c, http.StatusForbidden, "You can only reject requests from your department")
+			return
+		}
+	}
+
+	err = h.leaveRepo.UpdateStatus(id, "rejected", approverID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to reject leave request")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, nil)
+}
