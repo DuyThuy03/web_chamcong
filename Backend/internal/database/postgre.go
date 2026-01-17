@@ -19,7 +19,7 @@ type Database struct {
 
 func NewPostgresDB(cfg *config.DatabaseConfig) (*Database, error) {
     dsn := fmt.Sprintf(
-        "host=%s port=%s user=%s password=%s dbname=%s sslmode=%s client_encoding=%s",
+        "host=%s port=%s user=%s password=%s dbname=%s sslmode=%s client_encoding=%s TimeZone=Asia/Ho_Chi_Minh",
         cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode, cfg.ClientEncoding,
     )
 

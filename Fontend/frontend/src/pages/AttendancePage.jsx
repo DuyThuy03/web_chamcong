@@ -5,6 +5,7 @@ import { attendanceService } from "../service/attendance.service";
 import CheckOutForm from "../components/Attendance/CheckOutForm";
 import { CheckCircle, Clock } from "lucide-react";
 import { formatDateTime } from "../until/helper";
+import api from "../service/api";
 
 const AttendancePage = () => {
   const { user } = useAuth();
@@ -17,9 +18,11 @@ const AttendancePage = () => {
 
   const loadTodayAttendance = async () => {
     try {
-      const response = await attendanceService.getTodayAttendance();
-      if (response.success) {
-        setTodayAttendance(response.data);
+      const response = await api.get("/attendance/today");
+      console.log("TODAY ATTENDANCE RESPONSE:", response.data);
+      if (response.data.success) {
+        console.log("DATA FROM BACKEND:", response.data.data);
+        setTodayAttendance(response.data.data);
       }
     } catch (error) {
       console.error("Failed to load today attendance:", error);
@@ -27,7 +30,20 @@ const AttendancePage = () => {
       setLoading(false);
     }
   };
+  const formatDateTimeVN = (isoString) => {
+    if (!isoString) return "-";
 
+    const date = new Date(isoString);
+
+    return date.toLocaleString("vi-VN", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
   const handleCheckInSuccess = (data) => {
     setTodayAttendance(data);
     alert("Check-in thành công!");
@@ -37,6 +53,7 @@ const AttendancePage = () => {
     setTodayAttendance(data);
     alert("Check-out thành công!");
   };
+  // console.log("TODAY ATTENDANCE STATE:", todayAttendance);
 
   if (loading) {
     return (
@@ -61,7 +78,7 @@ const AttendancePage = () => {
                   <CheckCircle size={20} />
                   <span>
                     Đã check-in lúc{" "}
-                    {formatDateTime(todayAttendance.checkin_time)}
+                    {formatDateTimeVN(todayAttendance.checkin_time)}
                   </span>
                 </div>
               )}
@@ -70,7 +87,7 @@ const AttendancePage = () => {
                   <CheckCircle size={20} />
                   <span>
                     Đã check-out lúc{" "}
-                    {formatDateTime(todayAttendance.checkout_time)}
+                    {formatDateTimeVN(todayAttendance.checkout_time)}
                   </span>
                 </div>
               )}

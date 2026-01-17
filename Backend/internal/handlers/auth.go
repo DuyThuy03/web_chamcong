@@ -126,27 +126,32 @@ func (h *AuthHandler) Login(c *gin.Context) {
         return
     }
     
+    log.Println("Login attempt for email:", req.Email)
   
     // Get user from database
     user, err := h.userRepo.GetByEmail(req.Email)
     if err != nil {
+        log.Println("Error getting user from database:", err)
         utils.ErrorResponse(c, http.StatusInternalServerError, "Database error")
         return
     }
 
     if user == nil {
+        log.Println("User not found:", req.Email)
         utils.ErrorResponse(c, http.StatusUnauthorized, "Người dùng không tồn tại")
         return
     }
 
-    
+    log.Println("User found:", user.Email, "ID:", user.ID)
 
     // Check password
     // if !utils.CheckPassword(req.Password, user.Password) {
+    //     log.Println("Invalid password for user:", req.Email)
     //     utils.ErrorResponse(c, http.StatusUnauthorized, "Sai mật khẩu")
     //     return
     // }
 
+    log.Println("Generating tokens...")
 
     // Generate tokens
     var deptID *int
@@ -165,9 +170,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
         h.cfg.JWT.Expiry,
     )
     if err != nil {
+        log.Println("Error generating access token:", err)
         utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
         return
     }
+
+    log.Println("Access token generated successfully")
 
     refreshToken, err := utils.GenerateToken(
         user.ID,
@@ -179,12 +187,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
         h.cfg.JWT.RefreshExpiry,
     )
     if err != nil {
+        log.Println("Error generating refresh token:", err)
         utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate refresh token")
         return
     }
 
+    log.Println("Refresh token generated successfully")
+
     // Get full user info
-    userResponse, _ := h.userRepo.GetByID(user.ID)
+    userResponse, err := h.userRepo.GetByID(user.ID)
+    if err != nil {
+        log.Println("Error getting user details:", err)
+    }
 
     response := LoginResponse{
         AccessToken:  accessToken,
@@ -192,6 +206,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
         User:         userResponse,
     }
 
+    log.Printf("Sending login response with tokens. AccessToken length: %d, RefreshToken length: %d", len(accessToken), len(refreshToken))
     utils.SuccessResponse(c, http.StatusOK, response)
 }
 

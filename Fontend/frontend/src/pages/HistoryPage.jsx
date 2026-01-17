@@ -12,7 +12,7 @@ const HistoryPage = () => {
     total: 0,
     page: 1,
     limit: 20,
-    total_pages: 0,
+    totalPages: 0,
   });
   const [filters, setFilters] = useState({
     from_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -21,6 +21,7 @@ const HistoryPage = () => {
     to_date: new Date().toISOString().split("T")[0],
   });
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [viewingImage, setViewingImage] = useState(null);
 
   useEffect(() => {
     loadHistory();
@@ -36,12 +37,17 @@ const HistoryPage = () => {
       };
 
       const response = await attendanceService.getHistory(params);
+      console.log("History response:", response);
+
       if (response.success) {
         setRecords(response.data);
         setPagination(response.pagination);
+      } else {
+        console.log("Response not successful:", response);
       }
     } catch (error) {
       console.error("Failed to load history:", error);
+      console.error("Error details:", error.response);
     } finally {
       setLoading(false);
     }
@@ -64,13 +70,19 @@ const HistoryPage = () => {
       ABSENT: "bg-red-100 text-red-800",
     };
 
+    const statusLabels = {
+      ON_TIME: "Đúng giờ",
+      LATE: "Đi muộn",
+      ABSENT: "Vắng mặt",
+    };
+
     return (
       <span
         className={`px-2 py-1 rounded-full text-xs font-medium ${
           styles[status] || "bg-gray-100 text-gray-800"
         }`}
       >
-        {WORK_STATUS[status] || status}
+        {statusLabels[status] || status}
       </span>
     );
   };
@@ -203,7 +215,7 @@ const HistoryPage = () => {
                 <div className="flex items-center gap-2">
                   {Array.from(
                     { length: pagination.total_pages },
-                    (_, i) => i + 1
+                    (_, i) => i + 1,
                   )
                     .filter((page) => {
                       return (
@@ -290,9 +302,10 @@ const HistoryPage = () => {
                       </p>
                       {selectedRecord.checkin_image && (
                         <img
-                          src={`/uploads/${selectedRecord.checkin_image}`}
+                          src={selectedRecord.checkin_image}
                           alt="Check-in"
-                          className="w-full h-64 object-cover rounded"
+                          className="w-full h-64 object-cover rounded cursor-pointer hover:opacity-80 transition"
+                          onClick={() => setViewingImage(selectedRecord.checkin_image)}
                         />
                       )}
                       {selectedRecord.checkin_address && (
@@ -312,9 +325,10 @@ const HistoryPage = () => {
                       </p>
                       {selectedRecord.checkout_image && (
                         <img
-                          src={`/uploads/${selectedRecord.checkout_image}`}
+                          src={selectedRecord.checkout_image}
                           alt="Check-out"
-                          className="w-full h-64 object-cover rounded"
+                          className="w-full h-64 object-cover rounded cursor-pointer hover:opacity-80 transition"
+                          onClick={() => setViewingImage(selectedRecord.checkout_image)}
                         />
                       )}
                       {selectedRecord.checkout_address && (
@@ -328,6 +342,27 @@ const HistoryPage = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image Viewer Modal */}
+      {viewingImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-[60] flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <button
+            onClick={() => setViewingImage(null)}
+            className="absolute top-4 right-4 text-white text-4xl hover:text-gray-300"
+          >
+            ✕
+          </button>
+          <img
+            src={viewingImage}
+            alt="Full size"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

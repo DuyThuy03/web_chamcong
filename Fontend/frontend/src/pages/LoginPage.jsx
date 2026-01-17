@@ -17,8 +17,23 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate("/dashboard");
+      const user = await login(email, password);
+      // Navigate based on user role
+      switch (user.role) {
+        case "Giám đốc":
+          navigate("/director/dashboard");
+          break;
+        case "Quản lý":
+          navigate("/manager/dashboard");
+          break;
+        case "Trưởng phòng":
+          navigate("/department-head/dashboard");
+          break;
+        case "Nhân viên":
+        default:
+          navigate("/employee/dashboard");
+          break;
+      }
     } catch (err) {
       setError(err.response?.data?.error || "Đăng nhập thất bại");
     } finally {

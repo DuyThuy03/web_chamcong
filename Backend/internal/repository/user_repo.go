@@ -31,6 +31,26 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
     return user, err
 }
 
+// GetUserByID returns User model for update operations
+func (r *UserRepository) GetUserByID(id int) (*models.User, error) {
+    user := &models.User{}
+    err := r.db.QueryRow(`
+        SELECT id, name, email, date_of_birth, address, gender, phone_number, 
+               password, role, department_id, status, created_at, updated_at
+        FROM users WHERE id = $1 
+    `, id).Scan(
+        &user.ID, &user.Name, &user.Email, &user.DateOfBirth, &user.Address,
+        &user.Gender, &user.PhoneNumber, &user.Password, &user.Role,
+        &user.DepartmentID, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+    )
+    
+    if err == sql.ErrNoRows {
+        return nil, nil
+    }
+    return user, err
+}
+
+// GetByID returns UserResponse for API responses
 func (r *UserRepository) GetByID(id int) (*models.UserResponse, error) {
     user := &models.UserResponse{}
     var dob, address, gender, phone sql.NullString

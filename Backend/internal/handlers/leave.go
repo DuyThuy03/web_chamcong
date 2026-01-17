@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"database/sql"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"attendance-system/internal/middleware"
@@ -41,15 +44,14 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Validate leave type
+	// ===== 1. Normalize & validate TYPE =====
+	req.Type = strings.TrimSpace(strings.ToUpper(req.Type))
+
 	validTypes := map[string]bool{
-		"nghỉ phép":    true,
-		"nghỉ ốm":      true,
-		"đi muộn":      true,
-		"về sớm":       true,
-		"ra ngoài":     true,
-		"công tác":     true,
-		"nghỉ không lương": true,
+		"NGHI_PHEP": true,
+		"DI_MUON":   true,
+		"VE_SOM":    true,
+		"KHAC":      true,
 	}
 
 	if !validTypes[req.Type] {
@@ -57,16 +59,16 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Parse dates
-	fromDate, err := time.Parse("2006-01-02", req.FromDate)
+	// ===== 2. Parse date (RFC3339 từ FE) =====
+	fromDate, err := time.Parse(time.RFC3339, req.FromDate)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid from_date format. Use YYYY-MM-DD")
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid from_date format")
 		return
 	}
 
-	toDate, err := time.Parse("2006-01-02", req.ToDate)
+	toDate, err := time.Parse(time.RFC3339, req.ToDate)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid to_date format. Use YYYY-MM-DD")
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid to_date format")
 		return
 	}
 
@@ -75,39 +77,53 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// ===== 3. Get user =====
 	userID, _ := middleware.GetUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
+	// ===== 4. Build entity =====
 	leaveRequest := &models.LeaveRequest{
 		UserID:   userID,
 		Type:     req.Type,
 		FromDate: fromDate,
 		ToDate:   toDate,
-		Status:   "pending",
+		Status:   "CHO_DUYET", // ✅ KHỚP DB
 	}
 
 	if req.Session != nil {
-		leaveRequest.Session.String = *req.Session
-		leaveRequest.Session.Valid = true
+		leaveRequest.Session = sql.NullString{
+			String: strings.ToUpper(*req.Session),
+			Valid:  true,
+		}
 	}
 
 	if req.ExpectedArrivalTime != nil {
-		leaveRequest.ExpectedArrivalTime.String = *req.ExpectedArrivalTime
-		leaveRequest.ExpectedArrivalTime.Valid = true
+		leaveRequest.ExpectedArrivalTime = sql.NullString{
+			String: *req.ExpectedArrivalTime,
+			Valid:  true,
+		}
 	}
 
 	if req.Reason != nil {
-		leaveRequest.Reason.String = *req.Reason
-		leaveRequest.Reason.Valid = true
+		leaveRequest.Reason = sql.NullString{
+			String: *req.Reason,
+			Valid:  true,
+		}
 	}
 
-	err = h.leaveRepo.Create(leaveRequest)
-	if err != nil {
+	// ===== 5. Save =====
+	if err := h.leaveRepo.Create(leaveRequest); err != nil {
+		log.Println("Create leave error:", err)
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create leave request")
 		return
 	}
 
 	utils.SuccessResponse(c, http.StatusCreated, leaveRequest)
 }
+
 
 func (h *LeaveHandler) GetAll(c *gin.Context) {
 	userID, _ := middleware.GetUserID(c)
@@ -135,7 +151,10 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 
 	requests, total, err := h.leaveRepo.GetAll(userID, role, deptID, limit, offset)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave requests")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Failed to get leave requests: " + err.Error(),
+		})
 		return
 	}
 

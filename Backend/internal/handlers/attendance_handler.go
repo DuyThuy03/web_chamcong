@@ -134,117 +134,131 @@ func (h *AttendanceHandler) CheckOut(c *gin.Context) {
 }
 
 func (h *AttendanceHandler) GetHistory(c *gin.Context) {
-    currentUserID, _ := middleware.GetUserID(c)
-    role, _ := middleware.GetUserRole(c)
+        currentUserID, _ := middleware.GetUserID(c)
+        role, _ := middleware.GetUserRole(c)
 
-    // Parse query parameters
-    userIDStr := c.Query("user_id")
-    departmentIDStr := c.Query("department_id")
-    fromDateStr := c.Query("from_date")
-    toDateStr := c.Query("to_date")
-    pageStr := c.DefaultQuery("page", "1")
-    limitStr := c.DefaultQuery("limit", "20")
+        // Parse query parameters
+        userIDStr := c.Query("user_id")
+        departmentIDStr := c.Query("department_id")
+        fromDateStr := c.Query("from_date")
+        toDateStr := c.Query("to_date")
+        pageStr := c.DefaultQuery("page", "1")
+        limitStr := c.DefaultQuery("limit", "20")
 
-    var targetUserID *int
-    var departmentID *int
+        var targetUserID *int
+        var departmentID *int
 
-    // Permission checks
-    if role == "Nhân viên" {
-        // Employees can only see their own records
-        targetUserID = &currentUserID
-    } else if role == "Trưởng phòng" {
-        // Department leaders can see their department
-        if userIDStr != "" {
-            uid, _ := strconv.Atoi(userIDStr)
-            if !middleware.CheckUserAccess(c, uid) {
-                utils.ErrorResponse(c, http.StatusForbidden, "Access denied")
+        // Permission checks
+        if role == "Nhân viên" {
+            // Employees can only see their own records
+            targetUserID = &currentUserID
+        } else if role == "Trưởng phòng" {
+            // Department leaders can see their department
+            if userIDStr != "" {
+                uid, err := strconv.Atoi(userIDStr)
+                    if err != nil {
+                        utils.ErrorResponse(c, http.StatusBadRequest, "Invalid user_id")
+                        return
+                    }
+                if !middleware.CheckUserAccess(c, uid) {
+                    utils.ErrorResponse(c, http.StatusForbidden, "Access denied")
+                    return
+                }
+                targetUserID = &uid
+            }
+            if departmentIDStr != "" {
+                did, err := strconv.Atoi(departmentIDStr)
+                if err != nil {
+                    utils.ErrorResponse(c, http.StatusBadRequest, "Invalid department_id")
+                    return
+                }
+                currentDeptID, _ := middleware.GetDepartmentID(c)
+                if currentDeptID != did {
+                    utils.ErrorResponse(c, http.StatusForbidden, "Access denied")
+                    return
+                }
+                departmentID = &did
+            }
+        } else {
+            // Managers and directors can see all
+            if userIDStr != "" {
+                uid, err := strconv.Atoi(userIDStr)
+                if err != nil {
+                    utils.ErrorResponse(c, http.StatusBadRequest, "Invalid user_id")
+                    return
+                }
+                 targetUserID = &uid
+            }
+            if departmentIDStr != "" {
+                did, _ := strconv.Atoi(departmentIDStr)
+                departmentID = &did
+            }
+        }
+
+        // Parse dates
+        var fromDate, toDate time.Time
+        var err error
+
+        if fromDateStr != "" {
+            fromDate, err = time.Parse("2006-01-02", fromDateStr)
+            if err != nil {
+                utils.ErrorResponse(c, http.StatusBadRequest, "Invalid from_date format")
                 return
             }
-            targetUserID = &uid
+        } else {
+            // Default to 30 days ago
+        t := time.Now().AddDate(0, 0, -30)
+    fromDate = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
         }
-        if departmentIDStr != "" {
-            did, _ := strconv.Atoi(departmentIDStr)
-            currentDeptID, _ := middleware.GetDepartmentID(c)
-            if currentDeptID != did {
-                utils.ErrorResponse(c, http.StatusForbidden, "Access denied")
+
+        if toDateStr != "" {
+            toDate, err = time.Parse("2006-01-02", toDateStr)
+            if err != nil {
+                utils.ErrorResponse(c, http.StatusBadRequest, "Invalid to_date format")
                 return
             }
-            departmentID = &did
+        } else {
+      t := time.Now()
+    toDate = time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, time.Local)
         }
-    } else {
-        // Managers and directors can see all
-        if userIDStr != "" {
-            uid, _ := strconv.Atoi(userIDStr)
-            targetUserID = &uid
-        }
-        if departmentIDStr != "" {
-            did, _ := strconv.Atoi(departmentIDStr)
-            departmentID = &did
-        }
-    }
 
-    // Parse dates
-    var fromDate, toDate time.Time
-    var err error
+        page, _ := strconv.Atoi(pageStr)
+        limit, _ := strconv.Atoi(limitStr)
 
-    if fromDateStr != "" {
-        fromDate, err = time.Parse("2006-01-02", fromDateStr)
+        if page < 1 {
+            page = 1
+        }
+        if limit < 1 || limit > 100 {
+            limit = 20
+        }
+
+        offset := (page - 1) * limit
+
+        // Get attendance history
+        records, total, err := h.attendanceService.GetHistory(
+            targetUserID,
+            departmentID,
+            fromDate,
+            toDate,
+            limit,
+            offset,
+        )
+
         if err != nil {
-            utils.ErrorResponse(c, http.StatusBadRequest, "Invalid from_date format")
+            utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get attendance history")
             return
         }
-    } else {
-        // Default to 30 days ago
-        fromDate = time.Now().AddDate(0, 0, -30)
-    }
 
-    if toDateStr != "" {
-        toDate, err = time.Parse("2006-01-02", toDateStr)
-        if err != nil {
-            utils.ErrorResponse(c, http.StatusBadRequest, "Invalid to_date format")
-            return
+        totalPages := (total + limit - 1) / limit
+
+        pagination := utils.Pagination{
+            Total:      total,
+            Page:       page,
+            Limit:      limit,
+            TotalPages: totalPages,
         }
-    } else {
-        toDate = time.Now()
-    }
 
-    page, _ := strconv.Atoi(pageStr)
-    limit, _ := strconv.Atoi(limitStr)
-
-    if page < 1 {
-        page = 1
-    }
-    if limit < 1 || limit > 100 {
-        limit = 20
-    }
-
-    offset := (page - 1) * limit
-
-    // Get attendance history
-    records, total, err := h.attendanceService.GetHistory(
-        targetUserID,
-        departmentID,
-        fromDate,
-        toDate,
-        limit,
-        offset,
-    )
-
-    if err != nil {
-        utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get attendance history")
-        return
-    }
-
-    totalPages := (total + limit - 1) / limit
-
-    pagination := utils.Pagination{
-        Total:      total,
-        Page:       page,
-        Limit:      limit,
-        TotalPages: totalPages,
-    }
-
-    utils.PaginatedSuccessResponse(c, http.StatusOK, records, pagination)
+        utils.PaginatedSuccessResponse(c, http.StatusOK, records, pagination)
 }
 
 func (h *AttendanceHandler) GetToday(c *gin.Context) {
@@ -252,7 +266,7 @@ func (h *AttendanceHandler) GetToday(c *gin.Context) {
     
     today := time.Now()
     dayStart := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
-
+    
     record, err := h.attendanceService.GetByUserAndDay(userID, dayStart)
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get today's attendance")

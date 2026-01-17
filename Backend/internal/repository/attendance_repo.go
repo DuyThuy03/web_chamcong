@@ -1,18 +1,39 @@
 package repository
 
 import (
-    "database/sql"
-    "time"
-    
-    "attendance-system/internal/models"
+	"database/sql"
+	"strconv"
+	"strings"
+	"time"
+
+	"attendance-system/internal/models"
 )
 
 type AttendanceRepository struct {
-    db *sql.DB
+    db      *sql.DB
+    baseURL string
 }
 
-func NewAttendanceRepository(db *sql.DB) *AttendanceRepository {
-    return &AttendanceRepository{db: db}
+func NewAttendanceRepository(db *sql.DB, baseURL string) *AttendanceRepository {
+    return &AttendanceRepository{
+        db:      db,
+        baseURL: baseURL,
+    }
+}
+
+// Helper function to convert file path to URL
+func (r *AttendanceRepository) convertPathToURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	// Replace backslashes with forward slashes
+	path = strings.ReplaceAll(path, "\\", "/")
+	// Add /uploads/ prefix if not already present
+	if !strings.HasPrefix(path, "/uploads/") && !strings.HasPrefix(path, "uploads/") {
+		path = "/uploads/" + path
+	}
+	// Return full URL with baseURL
+	return r.baseURL + path
 }
 
 func (r *AttendanceRepository) Create(checkIO *models.CheckIO) error {
@@ -111,6 +132,16 @@ func (r *AttendanceRepository) GetByID(id int) (*models.CheckIOResponse, error) 
         resp.DepartmentName = &deptName.String
     }
     
+    // Convert image paths to URLs
+    if resp.CheckinImage != nil {
+        imageURL := r.convertPathToURL(*resp.CheckinImage)
+        resp.CheckinImage = &imageURL
+    }
+    if resp.CheckoutImage != nil {
+        imageURL := r.convertPathToURL(*resp.CheckoutImage)
+        resp.CheckoutImage = &imageURL
+    }
+    
     return resp, nil
 }
 
@@ -132,16 +163,17 @@ func (r *AttendanceRepository) GetHistory(userID *int, departmentID *int, fromDa
     argCount := 2
     
     if userID != nil {
-        argCount++
-        query += ` AND c.user_id = $` + string(rune(argCount+'0'))
-        args = append(args, *userID)
-    }
-    
-    if departmentID != nil {
-        argCount++
-        query += ` AND u.department_id = $` + string(rune(argCount+'0'))
-        args = append(args, *departmentID)
-    }
+    argCount++
+    query += " AND c.user_id = $" + strconv.Itoa(argCount)
+    args = append(args, *userID)
+}
+
+if departmentID != nil {
+    argCount++
+    query += " AND u.department_id = $" + strconv.Itoa(argCount)
+    args = append(args, *departmentID)
+}
+
     
     // Get total count
     countQuery := `SELECT COUNT(*) FROM (` + query + `) as count_table`
@@ -152,18 +184,24 @@ func (r *AttendanceRepository) GetHistory(userID *int, departmentID *int, fromDa
     }
     
     // Get records
-    query += ` ORDER BY c.day DESC, c.checkin_time DESC LIMIT $` + string(rune(argCount+1+'0')) + ` OFFSET $` + string(rune(argCount+2+'0'))
-    args = append(args, limit, offset)
-    
-    rows, err := r.db.Query(query, args...)
-    if err != nil {
-        return nil, 0, err
-    }
-    defer rows.Close()
-    
-    records := make([]*models.CheckIOResponse, 0)
-    for rows.Next() {
-        resp := &models.CheckIOResponse{}
+   query += " ORDER BY c.day DESC, c.checkin_time DESC"
+argCount++
+query += " LIMIT $" + strconv.Itoa(argCount)
+args = append(args, limit)
+
+argCount++
+query += " OFFSET $" + strconv.Itoa(argCount)
+args = append(args, offset)
+
+rows, err := r.db.Query(query, args...)
+if err != nil {
+    return nil, 0, err
+}
+defer rows.Close()
+
+records := make([]*models.CheckIOResponse, 0)
+for rows.Next() {
+    resp := &models.CheckIOResponse{}
         var deptName sql.NullString
         
         err := rows.Scan(
@@ -179,6 +217,16 @@ func (r *AttendanceRepository) GetHistory(userID *int, departmentID *int, fromDa
         
         if deptName.Valid {
             resp.DepartmentName = &deptName.String
+        }
+        
+        // Convert image paths to URLs
+        if resp.CheckinImage != nil {
+            imageURL := r.convertPathToURL(*resp.CheckinImage)
+            resp.CheckinImage = &imageURL
+        }
+        if resp.CheckoutImage != nil {
+            imageURL := r.convertPathToURL(*resp.CheckoutImage)
+            resp.CheckoutImage = &imageURL
         }
         
         records = append(records, resp)

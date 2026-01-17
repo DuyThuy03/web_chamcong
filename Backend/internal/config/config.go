@@ -36,6 +36,7 @@ type JWTConfig struct {
 type ServerConfig struct {
     Port              string
     Host              string
+    BaseURL           string
     CORSAllowedOrigins []string
 }
 
@@ -81,6 +82,7 @@ func Load() *Config {
         Server: ServerConfig{
             Port:              getEnv("SERVER_PORT", "8080"),
             Host:              getEnv("SERVER_HOST", "0.0.0.0"),
+            BaseURL:           getEnv("BASE_URL", "http://localhost:8080"),
             CORSAllowedOrigins: []string{
                 "http://localhost:5173",
                 "http://localhost:3000",

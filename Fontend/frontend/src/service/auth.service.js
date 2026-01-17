@@ -1,40 +1,44 @@
-import api from './api';
+import api from "./api";
 
 export const authService = {
   async login(email, password) {
-    const response = await api.post('/auth/login', { email, password });
+    const response = await api.post("/auth/login", { email, password });
+    console.log("FULL RESPONSE:", response.data);
     if (response.data.success && response.data.data) {
       const { access_token, refresh_token, user } = response.data.data;
-      localStorage.setItem('access_token', access_token);
-      localStorage.setItem('refresh_token', refresh_token);
-      localStorage.setItem('user', JSON.stringify(user));
+
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("refresh_token", refresh_token);
+      localStorage.setItem("user", JSON.stringify(user));
       return user;
+    
     }
-    throw new Error('Login failed');
+   
+    throw new Error("Login failed");
   },
 
   logout() {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
   },
 
   async getProfile() {
-    const response = await api.get('/profile');
+    const response = await api.get("/profile");
     if (response.data.success) {
       const user = response.data.data;
-      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(user));
       return user;
     }
-    throw new Error('Failed to get profile');
+    throw new Error("Failed to get profile");
   },
 
   getCurrentUser() {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     return userStr ? JSON.parse(userStr) : null;
   },
 
   isAuthenticated() {
-    return !!localStorage.getItem('access_token');
+    return !!localStorage.getItem("access_token");
   },
 };

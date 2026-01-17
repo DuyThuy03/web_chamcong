@@ -1,12 +1,12 @@
 package middleware
 
 import (
-    "net/http"
-    "strconv"
+	"net/http"
+	"strconv"
 
-    "attendance-system/internal/utils"
-    
-    "github.com/gin-gonic/gin"
+	"attendance-system/internal/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Role-based access control middleware
@@ -104,13 +104,16 @@ func CheckUserAccessMiddleware() gin.HandlerFunc {
 func CheckAttendanceAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		targetUserIDStr := c.Query("user_id")
-		if targetUserIDStr == "" {
-			utils.ErrorResponse(c, http.StatusBadRequest, "Thiếu user_id")
-			c.Abort()
-			return
-		}
+        currentUserID, _ := GetUserID(c)
 
+        targetUserIDStr := c.Query("user_id")
+
+        // ✅ Nếu KHÔNG truyền user_id → dùng user trong token
+        if targetUserIDStr == "" {
+            c.Set("target_user_id", currentUserID)
+            c.Next()
+            return
+        }
 		targetUserID, err := strconv.Atoi(targetUserIDStr)
 		if err != nil {
 			utils.ErrorResponse(c, http.StatusBadRequest, "user_id không hợp lệ")

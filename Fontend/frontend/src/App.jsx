@@ -5,12 +5,17 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import AttendancePage from "./pages/AttendancePage";
 import HistoryPage from "./pages/HistoryPage";
+import LeaveRequestPage from "./pages/LeaveRequestPage";
+import EmployeeDashboard from "./pages/EmployeeDashboard";
+import DepartmentHeadDashboard from "./pages/DepartmentHeadDashboard";
+import ManagerDashboard from "./pages/ManagerDashboard";
+import DirectorDashboard from "./pages/DirectorDashboard";
 // import ProfilePage from "./pages/ProfilePage";
 import Layout from "./components/Layout/Layout";
 
 // Protected Route wrapper
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+  const { isAuthenticated, loading, user, getDefaultRoute } = useAuth();
 
   if (loading) {
     return (
@@ -24,12 +29,17 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // If allowedRoles is specified and user doesn't have permission, redirect to their dashboard
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+    return <Navigate to={getDefaultRoute()} replace />;
+  }
+
   return <Layout>{children}</Layout>;
 };
 
 // Public Route wrapper
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, getDefaultRoute } = useAuth();
 
   if (loading) {
     return (
@@ -40,10 +50,16 @@ const PublicRoute = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getDefaultRoute()} replace />;
   }
 
   return children;
+};
+
+// Root redirect component
+const RootRedirect = () => {
+  const { getDefaultRoute } = useAuth();
+  return <Navigate to={getDefaultRoute()} replace />;
 };
 
 function App() {
@@ -59,11 +75,20 @@ function App() {
               </PublicRoute>
             }
           />
+
+          {/* Employee Routes */}
           <Route
-            path="/dashboard"
+            path="/employee/dashboard"
             element={
-              <ProtectedRoute>
-                <DashboardPage />
+              <ProtectedRoute
+                allowedRoles={[
+                  "Nhân viên",
+                  "Trưởng phòng",
+                  "Quản lý",
+                  "Giám đốc",
+                ]}
+              >
+                <EmployeeDashboard />
               </ProtectedRoute>
             }
           />
@@ -83,16 +108,60 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* <Route
-            path="/profile"
+          <Route
+            path="/leave-request"
             element={
-              <ProtectedRoute>
-                <ProfilePage />
+              <ProtectedRoute
+                allowedRoles={[
+                  "Nhân viên",
+                  "Trưởng phòng",
+                  "Quản lý",
+                  "Giám đốc",
+                ]}
+              >
+                <LeaveRequestPage />
               </ProtectedRoute>
             }
-          /> */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          />
+
+          {/* Department Head Routes */}
+          <Route
+            path="/department-head/dashboard"
+            element={
+              <ProtectedRoute
+                allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
+              >
+                <DepartmentHeadDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Manager Routes */}
+          <Route
+            path="/manager/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["Quản lý", "Giám đốc"]}>
+                <ManagerDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Director Routes */}
+          <Route
+            path="/director/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["Giám đốc"]}>
+                <DirectorDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Legacy dashboard route - redirect to role-based dashboard */}
+          <Route path="/dashboard" element={<RootRedirect />} />
+
+          {/* Root and catch-all */}
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="*" element={<RootRedirect />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

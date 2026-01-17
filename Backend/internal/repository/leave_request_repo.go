@@ -17,7 +17,7 @@ func NewLeaveRequestRepository(db *sql.DB) *LeaveRequestRepository {
 
 func (r *LeaveRequestRepository) Create(req *models.LeaveRequest) error {
 	query := `
-		INSERT INTO leave_requests (user_id, type, from_date, to_date, session, expected_arrival_time, reason, status)
+		INSERT INTO "leaverequest" (user_id, type, from_date, to_date, session, expected_arrival_time, reason, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, created_at, updated_at
 	`
@@ -31,7 +31,7 @@ func (r *LeaveRequestRepository) Create(req *models.LeaveRequest) error {
 		req.Session,
 		req.ExpectedArrivalTime,
 		req.Reason,
-		"pending",
+		"CHO_DUYET", // Default status
 	).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 }
 
@@ -41,12 +41,12 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 
 	// Build queries based on role
 	if role == "Nhân viên" {
-		countQuery = `SELECT COUNT(*) FROM leave_requests WHERE user_id = $1`
+		countQuery = `SELECT COUNT(*) FROM "leaverequest" WHERE user_id = $1`
 		dataQuery = `
-			SELECT lr.id, lr.user_id, u.full_name, lr.type, lr.from_date, lr.to_date,
+			SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
 			       lr.session, lr.expected_arrival_time, lr.reason, lr.status,
-			       lr.approved_by_id, approver.full_name as approved_by_name, lr.approved_at, lr.created_at
-			FROM leave_requests lr
+			       lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
+			FROM "leaverequest" lr
 			JOIN users u ON lr.user_id = u.id
 			LEFT JOIN users approver ON lr.approved_by_id = approver.id
 			WHERE lr.user_id = $1
@@ -56,15 +56,15 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 		args = []interface{}{userID, limit, offset}
 	} else if role == "Trưởng phòng" && deptID != nil {
 		countQuery = `
-			SELECT COUNT(*) FROM leave_requests lr
+			SELECT COUNT(*) FROM "leaverequest" lr
 			JOIN users u ON lr.user_id = u.id
 			WHERE u.department_id = $1
 		`
 		dataQuery = `
-			SELECT lr.id, lr.user_id, u.full_name, lr.type, lr.from_date, lr.to_date,
+			SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
 			       lr.session, lr.expected_arrival_time, lr.reason, lr.status,
-			       lr.approved_by_id, approver.full_name as approved_by_name, lr.approved_at, lr.created_at
-			FROM leave_requests lr
+			       lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
+			FROM "leaverequest" lr
 			JOIN users u ON lr.user_id = u.id
 			LEFT JOIN users approver ON lr.approved_by_id = approver.id
 			WHERE u.department_id = $1
@@ -74,12 +74,12 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 		args = []interface{}{*deptID, limit, offset}
 	} else {
 		// Admin/Manager - see all
-		countQuery = `SELECT COUNT(*) FROM leave_requests`
+		countQuery = `SELECT COUNT(*) FROM "leaverequest"`
 		dataQuery = `
-			SELECT lr.id, lr.user_id, u.full_name, lr.type, lr.from_date, lr.to_date,
+			SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
 			       lr.session, lr.expected_arrival_time, lr.reason, lr.status,
-			       lr.approved_by_id, approver.full_name as approved_by_name, lr.approved_at, lr.created_at
-			FROM leave_requests lr
+			       lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
+			FROM "leaverequest" lr
 			JOIN users u ON lr.user_id = u.id
 			LEFT JOIN users approver ON lr.approved_by_id = approver.id
 			ORDER BY lr.created_at DESC
@@ -111,6 +111,11 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 	for rows.Next() {
 		var req models.LeaveRequestResponse
 		var fromDate, toDate time.Time
+		var session, expectedArrivalTime, reason sql.NullString
+		var approvedByID sql.NullInt64
+		var approvedByName sql.NullString
+		var approvedAt sql.NullTime
+		
 		err := rows.Scan(
 			&req.ID,
 			&req.UserID,
@@ -118,13 +123,13 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 			&req.Type,
 			&fromDate,
 			&toDate,
-			&req.Session,
-			&req.ExpectedArrivalTime,
-			&req.Reason,
+			&session,
+			&expectedArrivalTime,
+			&reason,
 			&req.Status,
-			&req.ApprovedByID,
-			&req.ApprovedByName,
-			&req.ApprovedAt,
+			&approvedByID,
+			&approvedByName,
+			&approvedAt,
 			&req.CreatedAt,
 		)
 		if err != nil {
@@ -133,6 +138,34 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 
 		req.FromDate = fromDate.Format("2006-01-02")
 		req.ToDate = toDate.Format("2006-01-02")
+		
+		// Convert sql.NullString to *string
+		if session.Valid {
+			req.Session = &session.String
+		}
+		if expectedArrivalTime.Valid {
+			req.ExpectedArrivalTime = &expectedArrivalTime.String
+		}
+		if reason.Valid {
+			req.Reason = &reason.String
+		}
+		
+		// Convert sql.NullInt64 to *int
+		if approvedByID.Valid {
+			id := int(approvedByID.Int64)
+			req.ApprovedByID = &id
+		}
+		
+		// Convert sql.NullString to *string
+		if approvedByName.Valid {
+			req.ApprovedByName = &approvedByName.String
+		}
+		
+		// Convert sql.NullTime to *time.Time
+		if approvedAt.Valid {
+			req.ApprovedAt = &approvedAt.Time
+		}
+		
 		requests = append(requests, req)
 	}
 
@@ -141,10 +174,10 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 
 func (r *LeaveRequestRepository) GetByID(id int) (*models.LeaveRequestResponse, error) {
 	query := `
-		SELECT lr.id, lr.user_id, u.full_name, lr.type, lr.from_date, lr.to_date,
+		SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
 		       lr.session, lr.expected_arrival_time, lr.reason, lr.status,
-		       lr.approved_by_id, approver.full_name as approved_by_name, lr.approved_at, lr.created_at
-		FROM leave_requests lr
+		       lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
+		FROM "leaverequest" lr
 		JOIN users u ON lr.user_id = u.id
 		LEFT JOIN users approver ON lr.approved_by_id = approver.id
 		WHERE lr.id = $1
@@ -152,6 +185,11 @@ func (r *LeaveRequestRepository) GetByID(id int) (*models.LeaveRequestResponse, 
 
 	var req models.LeaveRequestResponse
 	var fromDate, toDate time.Time
+	var session, expectedArrivalTime, reason sql.NullString
+	var approvedByID sql.NullInt64
+	var approvedByName sql.NullString
+	var approvedAt sql.NullTime
+	
 	err := r.db.QueryRow(query, id).Scan(
 		&req.ID,
 		&req.UserID,
@@ -159,13 +197,13 @@ func (r *LeaveRequestRepository) GetByID(id int) (*models.LeaveRequestResponse, 
 		&req.Type,
 		&fromDate,
 		&toDate,
-		&req.Session,
-		&req.ExpectedArrivalTime,
-		&req.Reason,
+		&session,
+		&expectedArrivalTime,
+		&reason,
 		&req.Status,
-		&req.ApprovedByID,
-		&req.ApprovedByName,
-		&req.ApprovedAt,
+		&approvedByID,
+		&approvedByName,
+		&approvedAt,
 		&req.CreatedAt,
 	)
 
@@ -178,13 +216,40 @@ func (r *LeaveRequestRepository) GetByID(id int) (*models.LeaveRequestResponse, 
 
 	req.FromDate = fromDate.Format("2006-01-02")
 	req.ToDate = toDate.Format("2006-01-02")
+	
+	// Convert sql.NullString to *string
+	if session.Valid {
+		req.Session = &session.String
+	}
+	if expectedArrivalTime.Valid {
+		req.ExpectedArrivalTime = &expectedArrivalTime.String
+	}
+	if reason.Valid {
+		req.Reason = &reason.String
+	}
+	
+	// Convert sql.NullInt64 to *int
+	if approvedByID.Valid {
+		id := int(approvedByID.Int64)
+		req.ApprovedByID = &id
+	}
+	
+	// Convert sql.NullString to *string
+	if approvedByName.Valid {
+		req.ApprovedByName = &approvedByName.String
+	}
+	
+	// Convert sql.NullTime to *time.Time
+	if approvedAt.Valid {
+		req.ApprovedAt = &approvedAt.Time
+	}
 
 	return &req, nil
 }
 
 func (r *LeaveRequestRepository) UpdateStatus(id int, status string, approvedByID int) error {
 	query := `
-		UPDATE leave_requests
+		UPDATE "leaverequest"
 		SET status = $1, approved_by_id = $2, approved_at = $3, updated_at = $4
 		WHERE id = $5
 	`
@@ -195,7 +260,7 @@ func (r *LeaveRequestRepository) UpdateStatus(id int, status string, approvedByI
 
 func (r *LeaveRequestRepository) GetUserIDByRequestID(id int) (int, error) {
 	var userID int
-	query := `SELECT user_id FROM leave_requests WHERE id = $1`
+	query := `SELECT user_id FROM "leaverequest" WHERE id = $1`
 	err := r.db.QueryRow(query, id).Scan(&userID)
 	return userID, err
 }

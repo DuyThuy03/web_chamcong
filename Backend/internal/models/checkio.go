@@ -32,7 +32,7 @@ type CheckIOResponse struct {
     UserID             int        `json:"user_id"`
     UserName           string     `json:"user_name"`
     DepartmentName     *string    `json:"department_name,omitempty"`
-    Day                string     `json:"day"`
+    Day                time.Time     `json:"day"`
     CheckinTime        *time.Time `json:"checkin_time,omitempty"`
     CheckoutTime       *time.Time `json:"checkout_time,omitempty"`
     CheckinImage       *string    `json:"checkin_image,omitempty"`

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useMemo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Home,
   Clock,
@@ -9,7 +9,14 @@ import {
   LogOut,
   Menu,
   X,
-} from 'lucide-react';
+  Users,
+  Building,
+  BarChart3,
+  FileText,
+  CheckSquare,
+  TrendingUp,
+  Settings,
+} from "lucide-react";
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -19,15 +26,95 @@ const Layout = ({ children }) => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
-  const menuItems = [
-    { path: '/dashboard', icon: Home, label: 'Trang chủ' },
-    { path: '/attendance', icon: Clock, label: 'CheckIN - CheckOUT' },
-    { path: '/history', icon: History, label: 'Lịch sử' },
-    { path: '/profile', icon: User, label: 'Hồ sơ' },
-  ];
+  // Dynamic menu based on user role
+  const menuItems = useMemo(() => {
+    const baseItems = [
+      {
+        path: "/attendance",
+        icon: Clock,
+        label: "CheckIN - CheckOUT",
+        roles: ["Nhân viên", "Trưởng phòng", "Quản lý", "Giám đốc"],
+      },
+      {
+        path: "/history",
+        icon: History,
+        label: "Lịch sử chấm công",
+        roles: ["Nhân viên", "Trưởng phòng", "Quản lý", "Giám đốc"],
+      },
+    ];
+
+    // Role-specific menu items
+    const roleMenus = {
+      "Nhân viên": [
+        { path: "/employee/dashboard", icon: Home, label: "Dashboard" },
+        ...baseItems,
+        { path: "/leave-request", icon: FileText, label: "Xin nghỉ phép" },
+      ],
+      "Trưởng phòng": [
+        {
+          path: "/department-head/dashboard",
+          icon: Home,
+          label: "Dashboard Trưởng phòng",
+        },
+        ...baseItems,
+        {
+          path: "/department/employees",
+          icon: Users,
+          label: "Nhân viên phòng",
+        },
+        {
+          path: "/department/leave-requests",
+          icon: CheckSquare,
+          label: "Duyệt nghỉ phép",
+        },
+        {
+          path: "/department/attendance",
+          icon: BarChart3,
+          label: "Báo cáo chấm công",
+        },
+      ],
+      "Quản lý": [
+        { path: "/manager/dashboard", icon: Home, label: "Dashboard Quản lý" },
+        ...baseItems,
+        { path: "/manager/employees", icon: Users, label: "Quản lý nhân viên" },
+        {
+          path: "/manager/departments",
+          icon: Building,
+          label: "Quản lý phòng ban",
+        },
+        {
+          path: "/manager/attendance",
+          icon: BarChart3,
+          label: "Báo cáo chấm công",
+        },
+        { path: "/manager/reports", icon: FileText, label: "Thống kê báo cáo" },
+      ],
+      "Giám đốc": [
+        {
+          path: "/director/dashboard",
+          icon: Home,
+          label: "Dashboard Giám đốc",
+        },
+        {
+          path: "/director/reports",
+          icon: FileText,
+          label: "Báo cáo tổng hợp",
+        },
+        {
+          path: "/director/analytics",
+          icon: TrendingUp,
+          label: "Phân tích dữ liệu",
+        },
+        { path: "/director/departments", icon: Building, label: "Phòng ban" },
+        { path: "/director/strategy", icon: Settings, label: "Chiến lược" },
+      ],
+    };
+
+    return roleMenus[user?.role] || roleMenus["Nhân viên"];
+  }, [user?.role]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -46,10 +133,12 @@ const Layout = ({ children }) => {
                 Hệ thống chấm công
               </h1>
             </div>
-            
+
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-700">{user?.name}</p>
+                <p className="text-sm font-medium text-gray-700">
+                  {user?.name}
+                </p>
                 <p className="text-xs text-gray-500">{user?.role}</p>
               </div>
               <button
@@ -68,7 +157,7 @@ const Layout = ({ children }) => {
         {/* Sidebar */}
         <aside
           className={`
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
             md:translate-x-0
             fixed md:static inset-y-0 left-0 z-30
             w-64 bg-white shadow-lg
@@ -80,7 +169,7 @@ const Layout = ({ children }) => {
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
-              
+
               return (
                 <Link
                   key={item.path}
@@ -90,8 +179,8 @@ const Layout = ({ children }) => {
                     flex items-center gap-3 px-4 py-3 rounded-lg transition
                     ${
                       isActive
-                        ? 'bg-blue-50 text-blue-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? "bg-blue-50 text-blue-600 font-medium"
+                        : "text-gray-700 hover:bg-gray-50"
                     }
                   `}
                 >
@@ -105,9 +194,7 @@ const Layout = ({ children }) => {
 
         {/* Main content */}
         <main className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
+          <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
 

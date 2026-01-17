@@ -31,7 +31,7 @@ func main() {
 
     // Initialize repositories
     userRepo := repository.NewUserRepository(db.DB)
-    attendanceRepo := repository.NewAttendanceRepository(db.DB)
+    attendanceRepo := repository.NewAttendanceRepository(db.DB, cfg.Server.BaseURL)
     departmentRepo := repository.NewDepartmentRepository(db.DB)
     shiftRepo := repository.NewShiftRepository(db.DB)
     leaveRequestRepo := repository.NewLeaveRequestRepository(db.DB)
@@ -52,6 +52,7 @@ func main() {
         attendanceRepo,
         imageService,
         locationService,
+        cfg.Server.BaseURL,
     )
 
     // Initialize handlers
@@ -142,6 +143,7 @@ func setupRouter(
         {
             // User profile
             protected.GET("/profile", authHandler.GetProfile)
+            protected.PUT("/profile", userHandler.UpdateProfile)
 
             // Attendance routes
             attendance := protected.Group("/attendance")

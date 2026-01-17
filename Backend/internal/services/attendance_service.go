@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"attendance-system/internal/models"
@@ -15,18 +16,36 @@ type AttendanceService struct {
     repo            *repository.AttendanceRepository
     imageService    *ImageService
     locationService *LocationService
+    baseURL         string
 }
 
 func NewAttendanceService(
     repo *repository.AttendanceRepository,
     imageService *ImageService,
     locationService *LocationService,
+    baseURL string,
 ) *AttendanceService {
     return &AttendanceService{
         repo:            repo,
         imageService:    imageService,
         locationService: locationService,
+        baseURL:         baseURL,
     }
+}
+
+// Helper function to convert file path to URL
+func (s *AttendanceService) convertPathToURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	// Replace backslashes with forward slashes
+	path = strings.ReplaceAll(path, "\\", "/")
+	// Add /uploads/ prefix if not already present
+	if !strings.HasPrefix(path, "/uploads/") && !strings.HasPrefix(path, "uploads/") {
+		path = "/uploads/" + path
+	}
+	// Return full URL with baseURL
+	return s.baseURL + path
 }
 
 func (s *AttendanceService) CheckIn(
@@ -39,7 +58,7 @@ func (s *AttendanceService) CheckIn(
     shiftID int,
 ) (*models.CheckIOResponse, error) {
     now := time.Now()
-    today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+    today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 
     // Check if already checked in today
     existing, err := s.repo.GetByUserAndDay(userID, today)
@@ -47,9 +66,9 @@ func (s *AttendanceService) CheckIn(
         return nil, err
     }
     
-    // if existing != nil && existing.CheckinTime.Valid {
-    //     return nil, errors.New("đã check-in hôm nay")
-    // }
+    if existing != nil && existing.CheckinTime.Valid {
+        return nil, errors.New("đã check-in hôm nay")
+    }
 
     // Validate location
     isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude)
@@ -76,26 +95,35 @@ func (s *AttendanceService) CheckIn(
     workStatus := s.determineWorkStatus(now, shiftID)
 
     // Save to database
-    checkIO := &models.CheckIO{
-        UserID:           userID,
-        Day:              today,
-        CheckinTime:      sql.NullTime{Time: now, Valid: true},
-        CheckinImage:     sql.NullString{String: imagePath, Valid: true},
-        CheckinLatitude:  sql.NullFloat64{Float64: latitude, Valid: true},
-        CheckinLongitude: sql.NullFloat64{Float64: longitude, Valid: true},
-        CheckinAddress:   sql.NullString{String: address, Valid: true},
-        Device:           sql.NullString{String: device, Valid: true},
-        ShiftID:          sql.NullInt64{Int64: int64(shiftID), Valid: true},
-        WorkStatus:       sql.NullString{String: workStatus, Valid: true},
-        LeaveStatus:      "NONE",
-    }
-
+    var checkIO *models.CheckIO
+    
     if existing != nil {
         // Update existing record
-        checkIO.ID = existing.ID
+        checkIO = existing
+        checkIO.CheckinTime = sql.NullTime{Time: now, Valid: true}
+        checkIO.CheckinImage = sql.NullString{String: imagePath, Valid: true}
+        checkIO.CheckinLatitude = sql.NullFloat64{Float64: latitude, Valid: true}
+        checkIO.CheckinLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
+        checkIO.CheckinAddress = sql.NullString{String: address, Valid: true}
+        checkIO.Device = sql.NullString{String: device, Valid: true}
+        checkIO.ShiftID = sql.NullInt64{Int64: int64(shiftID), Valid: true}
+        checkIO.WorkStatus = sql.NullString{String: workStatus, Valid: true}
         err = s.repo.Update(checkIO)
     } else {
         // Create new record
+        checkIO = &models.CheckIO{
+            UserID:           userID,
+            Day:              today,
+            CheckinTime:      sql.NullTime{Time: now, Valid: true},
+            CheckinImage:     sql.NullString{String: imagePath, Valid: true},
+            CheckinLatitude:  sql.NullFloat64{Float64: latitude, Valid: true},
+            CheckinLongitude: sql.NullFloat64{Float64: longitude, Valid: true},
+            CheckinAddress:   sql.NullString{String: address, Valid: true},
+            Device:           sql.NullString{String: device, Valid: true},
+            ShiftID:          sql.NullInt64{Int64: int64(shiftID), Valid: true},
+            WorkStatus:       sql.NullString{String: workStatus, Valid: true},
+            LeaveStatus:      "NONE",
+        }
         err = s.repo.Create(checkIO)
     }
 
@@ -116,7 +144,7 @@ func (s *AttendanceService) CheckOut(
 	shiftID int,
 ) (*models.CheckIOResponse, error) {
 	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())	
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)	
 	// Lấy bản ghi CheckIO hiện tại
 	existing, err := s.repo.GetByUserAndDay(userID, today)
 	if err != nil {
@@ -125,9 +153,9 @@ func (s *AttendanceService) CheckOut(
 	if existing == nil || !existing.CheckinTime.Valid {
 		return nil, errors.New("chưa check-in hôm nay")
 	}
-	// if existing.CheckoutTime.Valid {
-	// 	return nil, errors.New("đã check-out hôm nay")
-	// }
+	if existing.CheckoutTime.Valid {
+		return nil, errors.New("đã check-out hôm nay")
+	}
 	// Xác thực vị trí
 	isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude)
 	if !isValid {
@@ -146,37 +174,20 @@ func (s *AttendanceService) CheckOut(
 	if err != nil {
 		return nil, fmt.Errorf("failed to process image: %w", err)
 	}
-   workStatus := s.determineWorkStatus(now, shiftID)
 
-    // Save to database
-    checkIO := &models.CheckIO{
-        UserID:           userID,
-        Day:              today,
-        CheckoutTime:      sql.NullTime{Time: now, Valid: true},
-        CheckoutImage:     sql.NullString{String: imagePath, Valid: true},
-        CheckoutLatitude:  sql.NullFloat64{Float64: latitude, Valid: true},
-        CheckoutLongitude: sql.NullFloat64{Float64: longitude, Valid: true},
-        CheckoutAddress:   sql.NullString{String: address, Valid: true},
-        Device:           sql.NullString{String: device, Valid: true},
-        ShiftID:          sql.NullInt64{Int64: int64(shiftID), Valid: true},
-        WorkStatus:       sql.NullString{String: workStatus, Valid: true},
-        LeaveStatus:      "NONE",
-    }
+	// Update existing record with checkout data
+	existing.CheckoutTime = sql.NullTime{Time: now, Valid: true}
+	existing.CheckoutImage = sql.NullString{String: imagePath, Valid: true}
+	existing.CheckoutLatitude = sql.NullFloat64{Float64: latitude, Valid: true}
+	existing.CheckoutLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
+	existing.CheckoutAddress = sql.NullString{String: address, Valid: true}
 
-    if existing != nil {
-        // Update existing record
-        checkIO.ID = existing.ID
-        err = s.repo.Update(checkIO)
-    } else {
-        // Create new record
-        err = s.repo.Create(checkIO)
-    }
+	err = s.repo.Update(existing)
+	if err != nil {
+		return nil, err
+	}
 
-    if err != nil {
-        return nil, err
-    }
-
-    return s.repo.GetByID(checkIO.ID)
+	return s.repo.GetByID(existing.ID)
 }
 //hàm Gethistory tương tự như GetByID nhưng lấy theo userID và khoảng thời gian
 func (s *AttendanceService) GetHistory(
@@ -203,15 +214,70 @@ func (s *AttendanceService) GetByUserAndDay(
 	}
 
 	resp := &models.CheckIOResponse{
-		ID:               checkIO.ID,
-		UserID:           checkIO.UserID,
-		
+		ID:          checkIO.ID,
+		UserID:      checkIO.UserID,
+		Day:         checkIO.Day,
+		LeaveStatus: checkIO.LeaveStatus,
+	
+	}
+
+	// ===== Time =====
+	if checkIO.CheckinTime.Valid {
+		resp.CheckinTime = &checkIO.CheckinTime.Time
+	}
+	if checkIO.CheckoutTime.Valid {
+		resp.CheckoutTime = &checkIO.CheckoutTime.Time
+	}
+
+	// ===== Image =====
+	if checkIO.CheckinImage.Valid {
+		imageURL := s.convertPathToURL(checkIO.CheckinImage.String)
+		resp.CheckinImage = &imageURL
+	}
+	if checkIO.CheckoutImage.Valid {
+		imageURL := s.convertPathToURL(checkIO.CheckoutImage.String)
+		resp.CheckoutImage = &imageURL
+	}
+
+	// ===== GPS =====
+	if checkIO.CheckinLatitude.Valid {
+		resp.CheckinLatitude = &checkIO.CheckinLatitude.Float64
+	}
+	if checkIO.CheckinLongitude.Valid {
+		resp.CheckinLongitude = &checkIO.CheckinLongitude.Float64
+	}
+	if checkIO.CheckoutLatitude.Valid {
+		resp.CheckoutLatitude = &checkIO.CheckoutLatitude.Float64
+	}
+	if checkIO.CheckoutLongitude.Valid {
+		resp.CheckoutLongitude = &checkIO.CheckoutLongitude.Float64
+	}
+
+	// ===== Address =====
+	if checkIO.CheckinAddress.Valid {
+		resp.CheckinAddress = &checkIO.CheckinAddress.String
+	}
+	if checkIO.CheckoutAddress.Valid {
+		resp.CheckoutAddress = &checkIO.CheckoutAddress.String
+	}
+
+	// ===== Device & Shift =====
+	if checkIO.Device.Valid {
+		resp.Device = &checkIO.Device.String
+	}
+	if checkIO.ShiftID.Valid {
+		shiftID := int(checkIO.ShiftID.Int64)
+		resp.ShiftID = &shiftID
+	}
+
+	// ===== Status =====
+	if checkIO.WorkStatus.Valid {
+		resp.WorkStatus = &checkIO.WorkStatus.String
 	}
 
 	return resp, nil
 }
-		
- 
+
 	
 
 
