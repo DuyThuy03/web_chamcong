@@ -1,25 +1,22 @@
 import api from "./api";
 
+
+
 export const authService = {
   async login(email, password) {
     const response = await api.post("/auth/login", { email, password });
-    console.log("FULL RESPONSE:", response.data);
-    if (response.data.success && response.data.data) {
-      const { access_token, refresh_token, user } = response.data.data;
 
-      localStorage.setItem("access_token", access_token);
-      localStorage.setItem("refresh_token", refresh_token);
+    if (response.data.success && response.data.data) {
+      const { user } = response.data.data;
       localStorage.setItem("user", JSON.stringify(user));
       return user;
-    
     }
-   
+
     throw new Error("Login failed");
   },
 
-  logout() {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+  async logout() {
+    await api.post("/auth/logout"); // backend clear cookie
     localStorage.removeItem("user");
   },
 
@@ -39,6 +36,7 @@ export const authService = {
   },
 
   isAuthenticated() {
-    return !!localStorage.getItem("access_token");
+    return !!localStorage.getItem("user");
   },
 };
+

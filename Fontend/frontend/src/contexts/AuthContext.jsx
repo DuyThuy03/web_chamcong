@@ -29,14 +29,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const user = await authService.login(email, password);
-   
+
     setUser(user);
     return user;
   };
 
-  const logout = () => {
-    authService.logout();
-    setUser(null);
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      // ensure UI state is cleared even if API fails
+      setUser(null);
+    }
   };
 
   const updateUser = (updatedUser) => {

@@ -1,15 +1,15 @@
 export const storage = {
-  getAccessToken() {
-    return localStorage.getItem('access_token');
-  },
+//   getAccessToken() {
+//     return localStorage.getItem('access_token');
+//   },
 
-  setAccessToken(token) {
-    localStorage.setItem('access_token', token);
-  },
+//   setAccessToken(token) {
+//     localStorage.setItem('access_token', token);
+//   },
 
-  removeAccessToken() {
-    localStorage.removeItem('access_token');
-  },
+//   removeAccessToken() {
+//     localStorage.removeItem('access_token');
+//   },
 
   getUser() {
     const userStr = localStorage.getItem('user');
@@ -24,9 +24,9 @@ export const storage = {
     localStorage.removeItem('user');
   },
 
-  clear() {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
-  },
+//   clear() {
+//     localStorage.removeItem('access_token');
+//     localStorage.removeItem('refresh_token');
+//     localStorage.removeItem('user');
+//   },
 };

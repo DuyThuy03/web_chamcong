@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
+
 	"time"
 
 	"attendance-system/internal/config"
@@ -13,52 +13,37 @@ import (
 
 func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
     return func(c *gin.Context) {
-        authHeader := c.GetHeader("Authorization")
-        if authHeader == "" {
-           
-            utils.ErrorResponse(c, http.StatusUnauthorized, "Yêu cầu header Authorization")
+
+        // 1️⃣ Lấy token từ httpOnly cookie
+        token, err := c.Cookie("access_token")
+        if err != nil || token == "" {
+            utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthenticated")
             c.Abort()
             return
         }
 
-        bearerToken := strings.Split(authHeader, " ")
-        if len(bearerToken) != 2 || bearerToken[0] != "Bearer" {
-          
-            utils.ErrorResponse(c, http.StatusUnauthorized, "Token sai định dạng")
-            c.Abort()
-            return
-        }
-
-        token := bearerToken[1]
-       
-        
+        // 2️⃣ Validate JWT
         claims, err := utils.ValidateToken(token, cfg.JWT.Secret)
         if err != nil {
-           
-            utils.ErrorResponse(c, http.StatusUnauthorized, "Token không hợp lệ hoặc đã hết hạn: "+err.Error())
+            utils.ErrorResponse(c, http.StatusUnauthorized, "Token không hợp lệ hoặc đã hết hạn")
             c.Abort()
             return
         }
-        
-       
 
-        // Set user info in context
+        // 3️⃣ Set user info vào context
         c.Set("user_id", claims.UserID)
         c.Set("user_email", claims.Email)
         c.Set("user_name", claims.Name)
         c.Set("user_role", claims.Role)
+
         if claims.DepartmentID != nil {
             c.Set("department_id", *claims.DepartmentID)
         }
 
+        // 4️⃣ (OPTIONAL) Refresh access token nếu sắp hết hạn
         if claims.ExpiresAt != nil {
-            timeUntilExpiry := time.Until(claims.ExpiresAt.Time)
-           
-            
-            // Nếu token còn ít hơn 1 giờ, tạo token mới
-            if timeUntilExpiry < 1*time.Hour {
-             
-                
+            if time.Until(claims.ExpiresAt.Time) < 15*time.Minute {
+
                 newToken, err := utils.GenerateToken(
                     claims.UserID,
                     claims.Email,
@@ -68,14 +53,17 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
                     cfg.JWT.Secret,
                     cfg.JWT.Expiry,
                 )
-                
+
                 if err == nil {
-                    // Gửi token mới trong response header
-                    c.Header("X-New-Token", newToken)
-                    c.Header("X-Token-Refreshed", "true")
-                   
-                } else {
-                    
+                    c.SetCookie(
+                        "access_token",
+                        newToken,
+                        int(cfg.JWT.Expiry.Seconds()),
+                        "/",
+                        "",
+                        true, // Secure
+                        true, // HttpOnly
+                    )
                 }
             }
         }
@@ -83,6 +71,7 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
         c.Next()
     }
 }
+
 
 func GetUserID(c *gin.Context) (int, bool) {
     userID, exists := c.Get("user_id")

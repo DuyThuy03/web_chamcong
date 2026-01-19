@@ -151,10 +151,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
     //     return
     // }
 
-    log.Println("Generating tokens...")
-    log.Printf("User data - ID: %d, Email: %s, Name: %s, Role: '%s'\n", user.ID, user.Email, user.Name, user.Role)
-    log.Printf("Role bytes: %v\n", []byte(user.Role))
-    log.Printf("JWT Config - Expiry: %v, Secret length: %d\n", h.cfg.JWT.Expiry, len(h.cfg.JWT.Secret))
+    
 
     // Generate tokens
     var deptID *int
@@ -207,14 +204,30 @@ func (h *AuthHandler) Login(c *gin.Context) {
         log.Println("Error getting user details:", err)
     }
 
-    response := LoginResponse{
-        AccessToken:  accessToken,
-        RefreshToken: refreshToken,
-        User:         userResponse,
-    }
+    c.SetCookie(
+    "access_token",
+    accessToken,
+    int(h.cfg.JWT.Expiry.Seconds()),
+    "/",
+    "",
+    true, // Secure (HTTPS)
+    true, // HttpOnly
+)
 
-    log.Printf("Sending login response with tokens. AccessToken length: %d, RefreshToken length: %d", len(accessToken), len(refreshToken))
-    utils.SuccessResponse(c, http.StatusOK, response)
+c.SetCookie(
+    "refresh_token",
+    refreshToken,
+    int(h.cfg.JWT.RefreshExpiry.Seconds()),
+    "/",
+    "",
+    true,
+    true,
+)
+
+// chỉ trả user
+utils.SuccessResponse(c, http.StatusOK, gin.H{
+    "user": userResponse,
+})
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {

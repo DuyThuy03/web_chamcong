@@ -20,6 +20,7 @@ import MemberListPage from './pages/MemberListPage';
   <Route path="/department/employees" element={<MemberListPage />} />
 </Routes>
 import Layout from "./components/Layout/Layout";
+import PrivateRoute from "./PrivateRouter/PrivateRouter";
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -136,11 +137,13 @@ function App() {
           <Route
             path="/department-head/dashboard"
             element={
-              <ProtectedRoute
+             <PrivateRoute>
+               <ProtectedRoute
                 allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
               >
                 <DepartmentHeadDashboard />
               </ProtectedRoute>
+             </PrivateRoute>
             }
           />
           <Route

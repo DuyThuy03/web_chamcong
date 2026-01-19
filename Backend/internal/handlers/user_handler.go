@@ -295,3 +295,11 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
     updated, _ := h.userRepo.GetByID(currentUserID)
     utils.SuccessMessageResponse(c, http.StatusOK, "Cập nhật thông tin cá nhân thành công", updated)
 }
+func (h *AuthHandler) Logout(c *gin.Context) {
+    c.SetCookie("access_token", "", -1, "/", "", true, true)
+    c.SetCookie("refresh_token", "", -1, "/", "", true, true)
+
+    utils.SuccessResponse(c, http.StatusOK, gin.H{
+        "message": "Logged out",
+    })
+}

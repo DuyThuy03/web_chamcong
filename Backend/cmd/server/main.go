@@ -12,6 +12,8 @@ import (
 	"attendance-system/internal/middleware"
 	"attendance-system/internal/repository"
 	"attendance-system/internal/services"
+    
+
 
 	"github.com/gin-gonic/gin"
 )
@@ -100,24 +102,39 @@ func setupRouter(
     gin.SetMode(gin.ReleaseMode)
 
     router := gin.Default()
-    router.Use(func(c *gin.Context) {
-        log.Println("REQUEST:", c.Request.Method, c.Request.URL.String())
-        c.Next()
-    })
+   router.Use(func(c *gin.Context) {
+    origin := c.Request.Header.Get("Origin")
+
+    // CHỈ echo lại origin, KHÔNG ĐƯỢC "*"
+    c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+    c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+    c.Writer.Header().Set("Access-Control-Allow-Headers",
+        "Content-Type, Authorization",
+    )
+    c.Writer.Header().Set("Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+    )
+
+    if c.Request.Method == "OPTIONS" {
+        c.AbortWithStatus(204)
+        return
+    }
+    c.Next()
+})
 
     // CORS middleware
-    router.Use(func(c *gin.Context) {
-        c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-        c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-        c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-        c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+    // router.Use(func(c *gin.Context) {
+    //     c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    //     c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+    //     c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+    //     c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
 
-        if c.Request.Method == "OPTIONS" {
-            c.AbortWithStatus(204)
-            return
-        }
-        c.Next()
-    })
+    //     if c.Request.Method == "OPTIONS" {
+    //         c.AbortWithStatus(204)
+    //         return
+    //     }
+    //     c.Next()
+    // })
 
     // API v1 routes
     v1 := router.Group("/api/v1")
@@ -135,6 +152,7 @@ func setupRouter(
         {
             auth.POST("/login", authHandler.Login)
             auth.POST("/refresh", authHandler.RefreshToken)
+            auth.POST("/logout", authHandler.Logout)
         }
 
         // Protected routes

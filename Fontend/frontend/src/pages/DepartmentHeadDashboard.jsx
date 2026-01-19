@@ -17,10 +17,10 @@ const DepartmentHeadDashboard = () => {
   const [departmentAttendance, setDepartmentAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
+ useEffect(() => {
+  if (!user) return;
+  fetchDashboardData();
+}, [user]);
   const fetchDashboardData = async () => {
     try {
       setLoading(true);

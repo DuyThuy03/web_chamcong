@@ -24,12 +24,17 @@ const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  // Redirect to login when user becomes null
+  React.useEffect(() => {
+    if (!user) {
+      navigate("/login");
+    }
+  }, [user, navigate]);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
+ const handleLogout = async () => {
+  await logout();
+  navigate("/login", { replace: true });
+};
   // Dynamic menu based on user role
   const menuItems = useMemo(() => {
     const baseItems = [
