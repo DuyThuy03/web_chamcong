@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../service/api";
+import { formatDate, formatTime } from "../until/helper";
 
 const DepartmentHeadDashboard = () => {
   const { user } = useAuth();
@@ -26,35 +27,61 @@ const DepartmentHeadDashboard = () => {
 
       // Fetch department users
       const usersRes = await api.get("/users");
+      let totalEmployees = 0;
       if (usersRes.data.success) {
         const deptUsers = usersRes.data.data.filter(
-          (u) => u.department_id === user?.department_id
+          (u) => u.department_id === user?.department_id,
         );
-        setStats((prev) => ({ ...prev, totalEmployees: deptUsers.length }));
+        totalEmployees = deptUsers.length;
+        setStats((prev) => ({ ...prev, totalEmployees }));
+      }
+
+      // Fetch today's attendance data
+      const dashboardRes = await api.get("/manager/attendance/today");
+      if (dashboardRes.data.success) {
+        const data = dashboardRes.data.data;
+        const presentToday = data.filter(
+          (record) => record.checkin_image && record.checkin_time,
+        ).length;
+        const lateToday = data.filter(
+          (record) => record.work_status === "LATE",
+        ).length;
+        const departmentAttendance = data
+          .filter((record) => record.checkin_image && record.checkin_time) // Filter only checked-in employees
+          .map((record) => ({
+            user_name: record.user_name,
+            checkin_time: record.checkin_time,
+            checkout_time: record.checkout_time,
+            checkin_image: record.checkin_image,
+            is_late: record.work_status === "LATE",
+          }));
+
+        setStats((prev) => ({
+          ...prev,
+          totalEmployees: totalEmployees,
+          presentToday: presentToday,
+          lateToday: lateToday,
+        }));
+        setDepartmentAttendance(departmentAttendance);
       }
 
       // Fetch leave requests
-      const leaveRes = await api.get("/leave-requests");
-      if (leaveRes.data.success) {
-        const pending = leaveRes.data.data.filter(
-          (l) =>
-            l.status === "Chờ duyệt" && l.department_id === user?.department_id
-        );
+      const leaveRes = await api.get("/leaves");
+      
+      const responseData = leaveRes.data ;
+ 
+console.log("tầng 2", responseData)
+      if (responseData.success ) {
+       
+        const pending = responseData.data.requests.filter((l) => {
+          
+          return l.status === "CHO_DUYET";
+        });
+        
         setPendingLeaveRequests(pending.slice(0, 5));
         setStats((prev) => ({ ...prev, pendingLeaves: pending.length }));
-      }
-
-      // Fetch today's attendance
-      const today = new Date().toISOString().split("T")[0];
-      const attendanceRes = await api.get("/attendance/today");
-      if (attendanceRes.data.success) {
-        const todayRecords = attendanceRes.data.data || [];
-        setDepartmentAttendance(todayRecords.slice(0, 10));
-        setStats((prev) => ({
-          ...prev,
-          presentToday: todayRecords.length,
-          lateToday: todayRecords.filter((r) => r.is_late).length,
-        }));
+      } else {
+        console.log("Success is false or undefined or requests is missing");
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -65,7 +92,7 @@ const DepartmentHeadDashboard = () => {
 
   const handleApproveLeave = async (leaveId) => {
     try {
-      await api.put(`/leave-requests/${leaveId}/approve`);
+      await api.put(`/leaves/${leaveId}/approve`);
       alert("Đã duyệt đơn nghỉ phép");
       fetchDashboardData();
     } catch (error) {
@@ -76,7 +103,7 @@ const DepartmentHeadDashboard = () => {
 
   const handleRejectLeave = async (leaveId) => {
     try {
-      await api.put(`/leave-requests/${leaveId}/reject`);
+      await api.put(`/leaves/${leaveId}/reject`);
       alert("Đã từ chối đơn nghỉ phép");
       fetchDashboardData();
     } catch (error) {
@@ -89,12 +116,12 @@ const DepartmentHeadDashboard = () => {
     return new Date(dateString).toLocaleDateString("vi-VN");
   };
 
-  const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  // const formatTime = (dateString) => {
+  //   return new Date(dateString).toLocaleTimeString("vi-VN", {
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //   });
+  // };
 
   if (loading) {
     return (
@@ -119,7 +146,8 @@ const DepartmentHeadDashboard = () => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        {/* Tổng nhân viên */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -146,10 +174,11 @@ const DepartmentHeadDashboard = () => {
           </div>
         </div>
 
+        {/* Có mặt hôm nay */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm">Có mặt hôm nay</p>
+              <p className="text-gray-500 text-sm">Có mặt</p>
               <p className="text-3xl font-bold text-green-600 mt-2">
                 {stats.presentToday}
               </p>
@@ -172,10 +201,40 @@ const DepartmentHeadDashboard = () => {
           </div>
         </div>
 
+        {/* Chưa có mặt hôm nay */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm">Đi muộn hôm nay</p>
+              <p className="text-gray-500 text-sm">Chưa có mặt</p>
+              <p className="text-3xl font-bold text-gray-600 mt-2">
+                {stats.totalEmployees && stats.presentToday !== undefined
+                  ? stats.totalEmployees - stats.presentToday
+                  : "0"}
+              </p>
+            </div>
+            <div className="bg-gray-100 p-3 rounded-full">
+              <svg
+                className="w-8 h-8 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Đi muộn hôm nay */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-500 text-sm">Đi muộn</p>
               <p className="text-3xl font-bold text-yellow-600 mt-2">
                 {stats.lateToday}
               </p>
@@ -198,6 +257,7 @@ const DepartmentHeadDashboard = () => {
           </div>
         </div>
 
+        {/* Đơn chờ duyệt */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -225,69 +285,7 @@ const DepartmentHeadDashboard = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <button
-          onClick={() => navigate("/department/employees")}
-          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg shadow-md p-6 text-center transition-all duration-200"
-        >
-          <svg
-            className="w-12 h-12 mx-auto mb-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-            />
-          </svg>
-          <h3 className="text-xl font-semibold">Quản lý nhân viên</h3>
-        </button>
-
-        <button
-          onClick={() => navigate("/department/attendance")}
-          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg shadow-md p-6 text-center transition-all duration-200"
-        >
-          <svg
-            className="w-12 h-12 mx-auto mb-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-            />
-          </svg>
-          <h3 className="text-xl font-semibold">Chấm công phòng ban</h3>
-        </button>
-
-        <button
-          onClick={() => navigate("/department/leave-requests")}
-          className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg shadow-md p-6 text-center transition-all duration-200"
-        >
-          <svg
-            className="w-12 h-12 mx-auto mb-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          <h3 className="text-xl font-semibold">Duyệt nghỉ phép</h3>
-        </button>
-      </div>
-
+      {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pending Leave Requests */}
         <div className="bg-white rounded-lg shadow-md p-6">
@@ -311,15 +309,16 @@ const DepartmentHeadDashboard = () => {
                         {leave.user_name}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {formatDate(leave.start_date)} -{" "}
-                        {formatDate(leave.end_date)}
+                        {formatDate(leave.from_date)} -{" "}
+                        {formatDate(leave.to_date)}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
-                        {leave.reason}
+                        {leave.reason }
                       </p>
                     </div>
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                      {leave.status}
+                      {leave.status == "CHO_DUYET" ? "Chờ duyệt" : leave.status
+                      }
                     </span>
                   </div>
                   <div className="flex gap-2 mt-3">
@@ -361,7 +360,15 @@ const DepartmentHeadDashboard = () => {
                       {record.user_name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      Vào: {formatTime(record.checkin_time)}
+                      Vào:{" "}
+                      {record.checkin_time
+                        ? formatTime(record.checkin_time)
+                        : "Chưa check-in"}
+                      <br />
+                      Ra:{" "}
+                      {record.checkout_time
+                        ? formatTime(record.checkout_time)
+                        : "Chưa check-out"}
                     </p>
                   </div>
                   <div className="text-right">

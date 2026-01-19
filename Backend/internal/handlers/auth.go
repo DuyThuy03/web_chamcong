@@ -152,12 +152,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
     // }
 
     log.Println("Generating tokens...")
+    log.Printf("User data - ID: %d, Email: %s, Name: %s, Role: '%s'\n", user.ID, user.Email, user.Name, user.Role)
+    log.Printf("Role bytes: %v\n", []byte(user.Role))
+    log.Printf("JWT Config - Expiry: %v, Secret length: %d\n", h.cfg.JWT.Expiry, len(h.cfg.JWT.Secret))
 
     // Generate tokens
     var deptID *int
     if user.DepartmentID.Valid {
         id := int(user.DepartmentID.Int64)
         deptID = &id
+        log.Printf("Department ID: %d\n", id)
+    } else {
+        log.Println("No department ID")
     }
 
     accessToken, err := utils.GenerateToken(
@@ -176,6 +182,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
     }
 
     log.Println("Access token generated successfully")
+    log.Printf("Access token (first 50 chars): %s...\n", accessToken[:min(50, len(accessToken))])
 
     refreshToken, err := utils.GenerateToken(
         user.ID,
@@ -225,4 +232,95 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
     }
 
     utils.SuccessResponse(c, http.StatusOK, user)
+}
+
+type RefreshTokenRequest struct {
+    RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// RefreshToken - Cấp lại access token mới từ refresh token
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+    var req RefreshTokenRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        utils.ErrorResponse(c, http.StatusBadRequest, "Thiếu refresh token: "+err.Error())
+        return
+    }
+
+    log.Println("[REFRESH] Validating refresh token...")
+    log.Printf("[REFRESH] Refresh token length: %d\n", len(req.RefreshToken))
+
+    // Validate refresh token
+    claims, err := utils.ValidateToken(req.RefreshToken, h.cfg.JWT.Secret)
+    if err != nil {
+        log.Printf("[REFRESH] Invalid refresh token: %v\n", err)
+        utils.ErrorResponse(c, http.StatusUnauthorized, "Refresh token không hợp lệ hoặc đã hết hạn: "+err.Error())
+        return
+    }
+
+    log.Printf("[REFRESH] Refresh token valid for user ID: %d\n", claims.UserID)
+
+    // Get latest user info from database
+    user, err := h.userRepo.GetUserByID(claims.UserID)
+    if err != nil || user == nil {
+        log.Printf("[REFRESH] User not found: %d\n", claims.UserID)
+        utils.ErrorResponse(c, http.StatusNotFound, "Người dùng không tồn tại")
+        return
+    }
+
+    // Check if user is still active
+    if user.Status != "Hoạt động" {
+        log.Printf("[REFRESH] User is not active: %s\n", user.Status)
+        utils.ErrorResponse(c, http.StatusForbidden, "Tài khoản đã bị vô hiệu hóa")
+        return
+    }
+
+    log.Printf("[REFRESH] Generating new access token for user: %d (%s)\n", user.ID, user.Email)
+
+    // Generate new access token with latest user data
+    var deptID *int
+    if user.DepartmentID.Valid {
+        id := int(user.DepartmentID.Int64)
+        deptID = &id
+    }
+
+    newAccessToken, err := utils.GenerateToken(
+        user.ID,
+        user.Email,
+        user.Name,
+        user.Role,
+        deptID,
+        h.cfg.JWT.Secret,
+        h.cfg.JWT.Expiry,
+    )
+    if err != nil {
+        log.Printf("[REFRESH] Error generating new access token: %v\n", err)
+        utils.ErrorResponse(c, http.StatusInternalServerError, "Không thể tạo access token mới")
+        return
+    }
+
+    // Optionally generate new refresh token
+    newRefreshToken, err := utils.GenerateToken(
+        user.ID,
+        user.Email,
+        user.Name,
+        user.Role,
+        deptID,
+        h.cfg.JWT.Secret,
+        h.cfg.JWT.RefreshExpiry,
+    )
+    if err != nil {
+        log.Printf("[REFRESH] Error generating new refresh token: %v\n", err)
+        utils.ErrorResponse(c, http.StatusInternalServerError, "Không thể tạo refresh token mới")
+        return
+    }
+
+    log.Println("[REFRESH] New tokens generated successfully")
+
+    response := LoginResponse{
+        AccessToken:  newAccessToken,
+        RefreshToken: newRefreshToken,
+        User:         nil, // Không cần trả về user info khi refresh
+    }
+
+    utils.SuccessResponse(c, http.StatusOK, response)
 }

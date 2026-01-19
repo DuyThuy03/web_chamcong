@@ -11,6 +11,14 @@ import DepartmentHeadDashboard from "./pages/DepartmentHeadDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import DirectorDashboard from "./pages/DirectorDashboard";
 // import ProfilePage from "./pages/ProfilePage";
+import MemberListPage from './pages/MemberListPage';
+
+// ...existing code...
+
+<Routes>
+  {/* Các route khác */}
+  <Route path="/department/employees" element={<MemberListPage />} />
+</Routes>
 import Layout from "./components/Layout/Layout";
 
 // Protected Route wrapper
@@ -135,6 +143,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/department-head/employees"
+            element={
+              <ProtectedRoute
+                allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
+              >
+                <MemberListPage />
+              </ProtectedRoute>
+            }
+          />
+
 
           {/* Manager Routes */}
           <Route

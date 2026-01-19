@@ -168,6 +168,7 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 	})
 }
 
+//
 func (h *LeaveHandler) GetByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -235,7 +236,7 @@ func (h *LeaveHandler) Approve(c *gin.Context) {
 		return
 	}
 
-	if request.Status != "pending" {
+	if request.Status != "CHO_DUYET" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Leave request is already "+request.Status)
 		return
 	}
@@ -255,7 +256,7 @@ func (h *LeaveHandler) Approve(c *gin.Context) {
 		}
 	}
 
-	err = h.leaveRepo.UpdateStatus(id, "approved", approverID)
+	err = h.leaveRepo.UpdateStatus(id, "DA_DUYET", approverID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to approve leave request")
 		return
@@ -286,7 +287,7 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 		return
 	}
 
-	if request.Status != "pending" {
+	if request.Status != "CHO_DUYET" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Leave request is already "+request.Status)
 		return
 	}
@@ -306,7 +307,7 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 		}
 	}
 
-	err = h.leaveRepo.UpdateStatus(id, "rejected", approverID)
+	err = h.leaveRepo.UpdateStatus(id, "TU_CHOI", approverID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to reject leave request")
 		return

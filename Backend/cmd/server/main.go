@@ -55,6 +55,8 @@ func main() {
         cfg.Server.BaseURL,
     )
 
+    userService := services.NewUserService(userRepo)
+
     // Initialize handlers
     authHandler := handlers.NewAuthHandler(userRepo, cfg)
     userHandler := handlers.NewUserHandler(userRepo)
@@ -62,9 +64,16 @@ func main() {
     departmentHandler := handlers.NewDepartmentHandler(departmentRepo)
     shiftHandler := handlers.NewShiftHandler(shiftRepo)
     leaveHandler := handlers.NewLeaveHandler(leaveRequestRepo, userRepo)
+    managerHandler := handlers.NewManagerHandler(userRepo, attendanceRepo, userService)
+    dashboardHandler := handlers.NewDashboardHandler(
+        services.NewDashboardService(
+            repository.NewDashboardRepository(db.DB),
+            attendanceRepo,
+        ),
+    )
 
     // Setup Gin router
-    router := setupRouter(cfg, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler)
+    router := setupRouter(cfg, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler, managerHandler, dashboardHandler)
 
     // Start server
     addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -83,17 +92,18 @@ func setupRouter(
     departmentHandler *handlers.DepartmentHandler,
     shiftHandler *handlers.ShiftHandler,
     leaveHandler *handlers.LeaveHandler,
-	
+    managerHandler *handlers.ManagerHandler,
+    dashboardHandler *handlers.DashboardHandler,
 ) *gin.Engine {
     
     // Set Gin mode
     gin.SetMode(gin.ReleaseMode)
 
     router := gin.Default()
-     router.Use(func(c *gin.Context) {
-    log.Println("REQUEST:", c.Request.Method, c.Request.URL.String())
-    c.Next()
-})
+    router.Use(func(c *gin.Context) {
+        log.Println("REQUEST:", c.Request.Method, c.Request.URL.String())
+        c.Next()
+    })
 
     // CORS middleware
     router.Use(func(c *gin.Context) {
@@ -109,32 +119,22 @@ func setupRouter(
         c.Next()
     })
 
-    // Health check
-    // router.GET("/health", func(c *gin.Context) {
-    //     c.JSON(http.StatusOK, gin.H{
-    //         "status": "healthy",
-    //         "time":   time.Now(),
-    //     })
-    // })
-   
-
-
     // API v1 routes
     v1 := router.Group("/api/v1")
     {
         // Health check
         v1.GET("/health", func(c *gin.Context) {
-        c.JSON(http.StatusOK, gin.H{
-            "status": "OKE",
-            "time":   time.Now(),
+            c.JSON(http.StatusOK, gin.H{
+                "status": "OKE",
+                "time":   time.Now(),
+            })
         })
-    })
+
         // Public routes
         auth := v1.Group("/auth")
         {
-            auth.POST("/login", authHandler.Login) 
-                              
-
+            auth.POST("/login", authHandler.Login)
+            auth.POST("/refresh", authHandler.RefreshToken)
         }
 
         // Protected routes
@@ -159,7 +159,7 @@ func setupRouter(
 
             // User management (admin only)
             users := protected.Group("/users")
-            users.Use(middleware.RequireRole("Giám đốc", "Quản lý"))
+            users.Use(middleware.RequireRole("Giám đốc", "Quản lý", "Trưởng phòng"))
             {
                 users.GET("", userHandler.GetAll)
                 users.GET("/:id", userHandler.GetByID)
@@ -184,6 +184,45 @@ func setupRouter(
             {
                 shifts.GET("", shiftHandler.GetAll)
                 shifts.GET("/:id", shiftHandler.GetByID)
+            }
+
+            // ⭐ DASHBOARD ROUTE - NEW
+            dashboard := protected.Group("/dashboard")
+            dashboard.Use(middleware.RequireRole("Trưởng phòng", "Quản lý", "Giám đốc"))
+            {
+                // Dashboard tổng quan phòng ban
+                // Trưởng phòng: tự động lấy department_id từ token
+                // Quản lý/Giám đốc: phải truyền ?department_id=X
+                dashboard.GET("/department", dashboardHandler.GetDepartmentDashboard)
+            }
+
+            // Manager routes - Trưởng phòng, Quản lý, Giám đốc
+            manager := protected.Group("/manager")
+            manager.Use(middleware.RequireManagerRole())
+            {
+                // Xem trạng thái điểm danh hôm nay
+                manager.GET("/attendance/today", managerHandler.GetTodayAttendanceStatus)
+                
+                // Xem lịch sử chấm công của thành viên
+                manager.GET("/attendance/member-history", managerHandler.GetMemberAttendanceHistory)
+                
+                // Xem lịch sử chấm công của phòng ban
+                manager.GET("/attendance/department-history", managerHandler.GetDepartmentAttendanceHistory)
+                
+                // Quản lý thành viên
+                manager.GET("/members", managerHandler.GetDepartmentMembers)
+                manager.GET("/members/:id", managerHandler.GetMemberDetail)
+                manager.PUT("/members/:id", managerHandler.UpdateMember)
+                
+                // CRUD thành viên - chỉ Quản lý và Giám đốc
+                manager.POST("/members", 
+                    middleware.RequireAdminRole(),
+                    managerHandler.CreateMember,
+                )
+                manager.DELETE("/members/:id",
+                    middleware.RequireAdminRole(),
+                    managerHandler.DeleteMember,
+                )
             }
 
             // Leave requests

@@ -108,7 +108,7 @@ func CheckAttendanceAccess() gin.HandlerFunc {
 
         targetUserIDStr := c.Query("user_id")
 
-        // ✅ Nếu KHÔNG truyền user_id → dùng user trong token
+      
         if targetUserIDStr == "" {
             c.Set("target_user_id", currentUserID)
             c.Next()
@@ -136,6 +136,46 @@ func CheckAttendanceAccess() gin.HandlerFunc {
 func checkSameDepartment(deptID, userID int) bool {
     // Simplified - implement actual database check
     return true
+}
+
+// RequireManagerRole - Middleware cho trưởng phòng, quản lý và giám đốc
+func RequireManagerRole() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := GetUserRole(c)
+		if !exists {
+			utils.ErrorResponse(c, http.StatusUnauthorized, "User role not found")
+			c.Abort()
+			return
+		}
+
+		if role != "Trưởng phòng" && role != "Quản lý" && role != "Giám đốc" {
+			utils.ErrorResponse(c, http.StatusForbidden, "Chỉ trưởng phòng, quản lý và giám đốc mới có quyền truy cập")
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// RequireAdminRole - Middleware chỉ cho quản lý và giám đốc
+func RequireAdminRole() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := GetUserRole(c)
+		if !exists {
+			utils.ErrorResponse(c, http.StatusUnauthorized, "User role not found")
+			c.Abort()
+			return
+		}
+
+		if (role == "Quản lý" && role == "Giám đốc"  && role == "Trưởng phòng") {
+			utils.SuccessResponse(c, http.StatusOK, "OKe")
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
 }
 
 // CORS middleware

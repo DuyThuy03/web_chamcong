@@ -98,7 +98,7 @@ func (r *UserRepository) GetByID(id int) (*models.UserResponse, error) {
     
     return user, nil
 }
-
+//hàm lấy danh sách user theo phòng ban
 func (r *UserRepository) GetByDepartment(departmentID int, limit, offset int) ([]*models.UserResponse, int, error) {
     // Get total count
     var total int
@@ -200,7 +200,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.UserResponse, int,
     return users, total, nil
 }
 
-func (r *UserRepository) Update(user *models.User) error {
+func (r *UserRepository) UserUpdateProfile(user *models.User) error {
     _, err := r.db.Exec(`
         UPDATE users 
         SET name = $1, email = $2, date_of_birth = $3, address = $4, 
@@ -219,5 +219,22 @@ func (r *UserRepository) Create(user *models.User) error {
         RETURNING id, created_at
     `, user.Name, user.Email, user.Password, user.Role, user.DepartmentID, user.Status, 
        user.PhoneNumber, user.DateOfBirth, user.Address, user.Gender).Scan(&user.ID, &user.CreatedAt)
+    return err
+}
+
+func (r *UserRepository) Update(user *models.User) error {
+    _, err := r.db.Exec(`
+        UPDATE users 
+        SET name = $1, email = $2, date_of_birth = $3, address = $4, 
+            gender = $5, phone_number = $6, role = $7, department_id = $8,
+            status = $9, updated_at = NOW()
+        WHERE id = $10
+    `, user.Name, user.Email, user.DateOfBirth, user.Address, user.Gender,
+        user.PhoneNumber, user.Role, user.DepartmentID, user.Status, user.ID)
+    return err
+}
+//hàm xóa user
+func (r *UserRepository) Delete(userID int) error {
+    _, err := r.db.Exec(`DELETE FROM users WHERE id = $1`, userID)
     return err
 }

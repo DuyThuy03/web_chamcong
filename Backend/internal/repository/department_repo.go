@@ -75,6 +75,7 @@ func (r *DepartmentRepository) GetByID(id int) (*models.Department, error) {
 
 	return &dept, nil
 }
+//hàm lấy danh sách nhân viên theo phòng ban
 
 func (r *DepartmentRepository) GetUsersByDepartmentID(deptID int, limit, offset int) ([]models.User, int, error) {
 	// Get total count
@@ -130,3 +131,6 @@ func (r *DepartmentRepository) GetUsersByDepartmentID(deptID int, limit, offset 
 
 	return users, total, nil
 }
+//Lấy trạng thái điểm danh  của phòng ban
+
+	

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -234,5 +235,333 @@ for rows.Next() {
     
     return records, total, nil
 }
-//hàm GetByUserAndDay trả về bản ghi CheckIO của người dùng trong ngày cụ thể
-// func (r *AttendanceRepository) GetByUserAndDay(userID int, day time.Time) (*models.CheckIOResponse, error)
+
+// GetTodayAttendanceByDepartment - Lấy trạng thái điểm danh hôm nay của thành viên trong phòng ban 
+
+func (r *AttendanceRepository) GetTodayAttendanceByDepartment(departmentID int, today string) ([]*models.CheckIOResponse, error) {
+	query := `
+		SELECT 
+			u.id as user_id,
+			u.name as user_name,
+			d.name as department_name,
+			c.id,
+			c.day,
+			c.checkin_time,
+			c.checkout_time,
+			c.checkin_image,
+			c.checkout_image,
+			c.shift_id,
+			s.name as shift_name,
+			c.work_status,
+			c.leave_status
+		FROM users u
+		LEFT JOIN department d ON u.department_id = d.id
+		LEFT JOIN CheckIO c ON u.id = c.user_id AND c.day = $1::date
+		LEFT JOIN shifts s ON c.shift_id = s.id
+		WHERE u.department_id = $2 AND u.status = 'Hoạt động' 
+		ORDER BY u.name`
+	
+	rows, err := r.db.Query(query, today, departmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	attendances := make([]*models.CheckIOResponse, 0)
+	for rows.Next() {
+		resp := &models.CheckIOResponse{}
+		var checkioID sql.NullInt64
+		var day sql.NullTime
+		var deptName sql.NullString
+		
+		err := rows.Scan(
+			&resp.UserID,
+			&resp.UserName,
+			&deptName,
+			&checkioID,
+			&day,
+			&resp.CheckinTime,
+			&resp.CheckoutTime,
+			&resp.CheckinImage,
+			&resp.CheckoutImage,
+			&resp.ShiftID,
+			&resp.ShiftName,
+			&resp.WorkStatus,
+			&resp.LeaveStatus,
+		)
+		if err != nil {
+			return nil, err
+		}
+		
+		if checkioID.Valid {
+			id := int(checkioID.Int64)
+			resp.ID = id
+		}
+		
+		if day.Valid {
+			resp.Day = day.Time
+		}
+		
+		if deptName.Valid {
+			resp.DepartmentName = &deptName.String
+		}
+		
+		// Convert image paths to URLs
+		if resp.CheckinImage != nil {
+			imageURL := r.convertPathToURL(*resp.CheckinImage)
+			resp.CheckinImage = &imageURL
+		}
+		if resp.CheckoutImage != nil {
+			imageURL := r.convertPathToURL(*resp.CheckoutImage)
+			resp.CheckoutImage = &imageURL
+		}
+		
+		attendances = append(attendances, resp)
+	}
+	
+	return attendances, nil
+}
+
+// GetTodayAttendanceAll - Lấy trạng thái điểm danh hôm nay của tất cả thành viên (cho Quản lý và Giám đốc)
+func (r *AttendanceRepository) GetTodayAttendanceAll(today string) ([]*models.CheckIOResponse, error) {
+	query := `
+		SELECT 
+			u.id as user_id,
+			u.name as user_name,
+			d.name as department_name,
+			c.id,
+			c.day,
+			c.checkin_time,
+			c.checkout_time,
+			c.checkin_image,
+			c.checkout_image,
+			c.shift_id,
+			s.name as shift_name,
+			c.work_status,
+			c.leave_status
+		FROM users u
+		LEFT JOIN department d ON u.department_id = d.id
+		LEFT JOIN CheckIO c ON u.id = c.user_id AND c.day = $1::date
+		LEFT JOIN shifts s ON c.shift_id = s.id
+		WHERE u.status = 'Hoạt động'
+		ORDER BY d.name, u.name`
+	
+	rows, err := r.db.Query(query, today)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	attendances := make([]*models.CheckIOResponse, 0)
+	for rows.Next() {
+		resp := &models.CheckIOResponse{}
+		var checkioID sql.NullInt64
+		var day sql.NullTime
+		var deptName sql.NullString
+		
+		err := rows.Scan(
+			&resp.UserID,
+			&resp.UserName,
+			&deptName,
+			&checkioID,
+			&day,
+			&resp.CheckinTime,
+			&resp.CheckoutTime,
+			&resp.CheckinImage,
+			&resp.CheckoutImage,
+			&resp.ShiftID,
+			&resp.ShiftName,
+			&resp.WorkStatus,
+			&resp.LeaveStatus,
+		)
+		if err != nil {
+			return nil, err
+		}
+		
+		if checkioID.Valid {
+			id := int(checkioID.Int64)
+			resp.ID = id
+		}
+		
+		if day.Valid {
+			resp.Day = day.Time
+		}
+		
+		if deptName.Valid {
+			resp.DepartmentName = &deptName.String
+		}
+		
+		// Convert image paths to URLs
+		if resp.CheckinImage != nil {
+			imageURL := r.convertPathToURL(*resp.CheckinImage)
+			resp.CheckinImage = &imageURL
+		}
+		if resp.CheckoutImage != nil {
+			imageURL := r.convertPathToURL(*resp.CheckoutImage)
+			resp.CheckoutImage = &imageURL
+		}
+		
+		attendances = append(attendances, resp)
+	}
+	
+	return attendances, nil
+}
+
+// func (r *AttendanceRepository) GetAttendanceByUserAndDate(userID int, date time.Time) (*models.CheckIO, error) {
+// 	query := `
+// 		SELECT id, user_id, day, checkin_time, checkout_time, checkin_image, 
+// 			checkout_image, checkin_latitude, checkin_longitude, checkout_latitude, 
+// 			checkout_longitude, checkin_address, checkout_address, device, shift_id, 
+// 			work_status, leave_status, created_at, updated_at
+// 		FROM CheckIO
+// 		WHERE user_id = $1 AND day = $2`
+	
+// 	var checkio models.CheckIO
+// 	err := r.db.QueryRow(query, userID, date.Format("2006-01-02")).Scan(
+// 		&checkio.ID,
+// 		&checkio.UserID,
+// 		&checkio.Day,
+// 		&checkio.CheckinTime,
+// 		&checkio.CheckoutTime,
+// 		&checkio.CheckinImage,
+// 		&checkio.CheckoutImage,
+// 		&checkio.CheckinLatitude,
+// 		&checkio.CheckinLongitude,
+// 		&checkio.CheckoutLatitude,
+// 		&checkio.CheckoutLongitude,
+// 		&checkio.CheckinAddress,
+// 		&checkio.CheckoutAddress,
+// 		&checkio.Device,
+// 		&checkio.ShiftID,
+// 		&checkio.WorkStatus,
+// 		&checkio.LeaveStatus,
+// 		&checkio.CreatedAt,
+// 		&checkio.UpdatedAt,
+// 	)
+	
+// 	if err == sql.ErrNoRows {
+// 		return nil, fmt.Errorf("attendance record not found")
+// 	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
+	
+// 	return &checkio, nil
+// }
+func (r *AttendanceRepository) GetAttendanceHistory(filter models.AttendanceHistoryFilter, departmentID *int) ([]models.AttendanceHistoryResponse, int, error) {
+	// Default pagination
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 20
+	}
+	
+	offset := (filter.Page - 1) * filter.PageSize
+	
+	// Build WHERE clause
+	whereClauses := []string{}
+	args := []interface{}{}
+	argID := 1
+    
+	// Department filter (for Trưởng phòng)
+	if departmentID != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("u.department_id = $%d", argID))
+		args = append(args, *departmentID)
+		argID++
+	}
+	
+	// User filter
+	if filter.UserID != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("c.user_id = $%d", argID))
+		args = append(args, *filter.UserID)
+		argID++
+	}
+	
+	// Date range filter
+	if filter.FromDate != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("c.day >= $%d", argID))
+		args = append(args, *filter.FromDate)
+		argID++
+	}
+	
+	if filter.ToDate != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("c.day <= $%d", argID))
+		args = append(args, *filter.ToDate)
+		argID++
+	}
+	
+	// Work status filter
+	if filter.Status != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("c.work_status = $%d", argID))
+		args = append(args, *filter.Status)
+		argID++
+	}
+	
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+	
+	// Count total
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM CheckIO c
+		INNER JOIN users u ON c.user_id = u.id
+		%s`, whereClause)
+	
+	var total int
+	err := r.db.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+	
+	// Get paginated data
+	args = append(args, filter.PageSize, offset)
+	
+	dataQuery := fmt.Sprintf(`
+		SELECT 
+			c.id,
+			c.user_id,
+			u.name as user_name,
+			c.day,
+			c.checkin_time,
+			c.checkout_time,
+			c.work_status,
+			c.leave_status,
+			s.name as shift_name
+		FROM CheckIO c
+		INNER JOIN users u ON c.user_id = u.id
+		LEFT JOIN shifts s ON c.shift_id = s.id
+		%s
+		ORDER BY c.day DESC, u.name
+		LIMIT $%d OFFSET $%d`, whereClause, argID, argID+1)
+	
+	rows, err := r.db.Query(dataQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	
+	var attendances []models.AttendanceHistoryResponse
+	for rows.Next() {
+		var att models.AttendanceHistoryResponse
+		err := rows.Scan(
+			&att.ID,
+			&att.UserID,
+			&att.UserName,
+			&att.Day,
+			&att.CheckinTime,
+			&att.CheckoutTime,
+			&att.WorkStatus,
+			&att.LeaveStatus,
+			&att.ShiftName,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		attendances = append(attendances, att)
+	}
+	
+	return attendances, total, nil
+}

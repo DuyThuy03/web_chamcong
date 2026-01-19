@@ -22,7 +22,7 @@ type CheckIO struct {
     Device             sql.NullString  `json:"device,omitempty"`
     ShiftID            sql.NullInt64   `json:"shift_id,omitempty"`
     WorkStatus         sql.NullString  `json:"work_status,omitempty"`
-    LeaveStatus        string          `json:"leave_status"`
+    LeaveStatus        sql.NullString          `json:"leave_status"`
     CreatedAt          time.Time       `json:"created_at"`
     UpdatedAt          time.Time       `json:"updated_at"`
 }
@@ -47,6 +47,37 @@ type CheckIOResponse struct {
     ShiftID            *int       `json:"shift_id,omitempty"`
     ShiftName          *string    `json:"shift_name,omitempty"`
     WorkStatus         *string    `json:"work_status,omitempty"`
-    LeaveStatus        string     `json:"leave_status"`
+    LeaveStatus         sql.NullString      `json:"leave_status"`
     DistanceFromOffice *float64   `json:"distance_from_office,omitempty"`
+}
+type TodayAttendanceResponse struct {
+	UserID       int        `json:"user_id"`
+	UserName     string     `json:"user_name"`
+	Day          time.Time  `json:"day"`
+	CheckinTime  *time.Time `json:"checkin_time,omitempty"`
+	CheckoutTime *time.Time `json:"checkout_time,omitempty"`
+	WorkStatus   *string    `json:"work_status,omitempty"`
+	LeaveStatus  sql.NullString     `json:"leave_status"`
+	ShiftName    *string    `json:"shift_name,omitempty"`
+}
+
+type AttendanceHistoryResponse struct {
+	ID           int        `json:"id"`
+	UserID       int        `json:"user_id"`
+	UserName     string     `json:"user_name"`
+	Day          time.Time  `json:"day"`
+	CheckinTime  *time.Time `json:"checkin_time,omitempty"`
+	CheckoutTime *time.Time `json:"checkout_time,omitempty"`
+	WorkStatus   *string    `json:"work_status,omitempty"`
+	LeaveStatus  sql.NullString     `json:"leave_status"`
+	ShiftName    *string    `json:"shift_name,omitempty"`
+}
+
+type AttendanceHistoryFilter struct {
+	UserID    *int       `form:"user_id"`
+	FromDate  *time.Time `form:"from_date"`
+	ToDate    *time.Time `form:"to_date"`
+	Status    *string    `form:"status"`
+	Page      int        `form:"page"`
+	PageSize  int        `form:"page_size"`
 }

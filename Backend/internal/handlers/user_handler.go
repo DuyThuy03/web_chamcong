@@ -204,7 +204,7 @@ func (h *UserHandler) Update(c *gin.Context) {
         return
     }
 
-    err = h.userRepo.Update(user)
+    err = h.userRepo.UserUpdateProfile(user)
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to update user: "+err.Error())
         return
@@ -286,7 +286,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
         user.PhoneNumber = existing.PhoneNumber
     }
 
-    err = h.userRepo.Update(user)
+    err = h.userRepo.UserUpdateProfile(user)
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Cập nhật thông tin thất bại: "+err.Error())
         return

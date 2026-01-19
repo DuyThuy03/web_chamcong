@@ -16,6 +16,7 @@ import {
   CheckSquare,
   TrendingUp,
   Settings,
+  IdCard ,
 } from "lucide-react";
 
 const Layout = ({ children }) => {
@@ -59,11 +60,11 @@ const Layout = ({ children }) => {
           icon: Home,
           label: "Dashboard Trưởng phòng",
         },
-        ...baseItems,
+    
         {
-          path: "/department/employees",
+          path: "/department-head/employees",
           icon: Users,
-          label: "Nhân viên phòng",
+          label: "Quản lý thành viên",
         },
         {
           path: "/department/leave-requests",
@@ -72,8 +73,8 @@ const Layout = ({ children }) => {
         },
         {
           path: "/department/attendance",
-          icon: BarChart3,
-          label: "Báo cáo chấm công",
+          icon: IdCard ,
+          label: "Thông tin cá nhân",
         },
       ],
       "Quản lý": [

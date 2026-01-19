@@ -27,7 +27,7 @@ func (h *DepartmentHandler) GetAll(c *gin.Context) {
 
 	utils.SuccessResponse(c, http.StatusOK, departments)
 }
-
+//hàm lấy phòng ban theo id
 func (h *DepartmentHandler) GetByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -48,7 +48,7 @@ func (h *DepartmentHandler) GetByID(c *gin.Context) {
 
 	utils.SuccessResponse(c, http.StatusOK, department)
 }
-
+//hàm lấy danh sách nhân viên theo phòng ban
 func (h *DepartmentHandler) GetUsers(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

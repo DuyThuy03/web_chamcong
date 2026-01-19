@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"time"
 
@@ -122,7 +123,7 @@ func (s *AttendanceService) CheckIn(
             Device:           sql.NullString{String: device, Valid: true},
             ShiftID:          sql.NullInt64{Int64: int64(shiftID), Valid: true},
             WorkStatus:       sql.NullString{String: workStatus, Valid: true},
-            LeaveStatus:      "NONE",
+            LeaveStatus:     sql.NullString{},
         }
         err = s.repo.Create(checkIO)
     }
@@ -291,4 +292,21 @@ func (s *AttendanceService) determineWorkStatus(checkTime time.Time, shiftID int
         return "LATE"
     }
     return "ON_TIME"
+}
+
+// func (s *AttendanceService) GetTodayAttendanceByDepartment(departmentID int) ([]models.TodayAttendanceResponse, error) {
+// 	return s.repo.GetTodayAttendanceByDepartment(departmentID)
+// }
+
+func (s *AttendanceService) GetAttendanceHistory(filter models.AttendanceHistoryFilter, departmentID *int) (*models.PaginationResponse, error) {
+	attendances, total,_:= s.repo.GetAttendanceHistory(filter, departmentID)
+	totalPages := int(math.Ceil(float64(total) / float64(filter.PageSize)))
+	
+	return &models.PaginationResponse{
+		Page:       filter.Page,
+		PageSize:   filter.PageSize,
+		TotalPages: totalPages,
+		TotalItems: total,
+		Data:       attendances,
+	}, nil
 }
