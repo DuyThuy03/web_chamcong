@@ -2,24 +2,24 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "../../frontend/src/contexts/AuthContext";
 import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
+import DashboardPage from "./pages/employee/DashboardPage";
 import AttendancePage from "./pages/AttendancePage";
-import HistoryPage from "./pages/HistoryPage";
-import LeaveRequestPage from "./pages/LeaveRequestPage";
-import EmployeeDashboard from "./pages/EmployeeDashboard";
-import DepartmentHeadDashboard from "./pages/DepartmentHeadDashboard";
+import HistoryPage from "./pages/employee/HistoryPage";
+import LeaveRequestPage from "./pages/employee/LeaveRequestPage";
+import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
+import DepartmentHeadDashboard from "./pages/DepartmentHead/DepartmentHeadDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import DirectorDashboard from "./pages/DirectorDashboard";
 // import ProfilePage from "./pages/ProfilePage";
-import MemberListPage from './pages/MemberListPage';
-import LeavesHeadPage from './pages/Leaves-headPage';
+import MemberListPage from "./pages/DepartmentHead/MemberListPage";
+import LeavesHeadPage from "./pages/DepartmentHead/Leaves-headPage";
 
 // ...existing code...
 
 <Routes>
   {/* Các route khác */}
   <Route path="/department/employees" element={<MemberListPage />} />
-</Routes>
+</Routes>;
 import Layout from "./components/Layout/Layout";
 import PrivateRoute from "./PrivateRouter/PrivateRouter";
 
@@ -138,13 +138,13 @@ function App() {
           <Route
             path="/department-head/dashboard"
             element={
-             <PrivateRoute>
-               <ProtectedRoute
-                allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
-              >
-                <DepartmentHeadDashboard />
-              </ProtectedRoute>
-             </PrivateRoute>
+              <PrivateRoute>
+                <ProtectedRoute
+                  allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
+                >
+                  <DepartmentHeadDashboard />
+                </ProtectedRoute>
+              </PrivateRoute>
             }
           />
           <Route
@@ -167,7 +167,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
 
           {/* Manager Routes */}
           <Route

@@ -298,15 +298,37 @@ func (s *AttendanceService) determineWorkStatus(checkTime time.Time, shiftID int
 // 	return s.repo.GetTodayAttendanceByDepartment(departmentID)
 // }
 
-func (s *AttendanceService) GetAttendanceHistory(filter models.AttendanceHistoryFilter, departmentID *int) (*models.PaginationResponse, error) {
-	attendances, total,_:= s.repo.GetAttendanceHistory(filter, departmentID)
-	totalPages := int(math.Ceil(float64(total) / float64(filter.PageSize)))
-	
-	return &models.PaginationResponse{
-		Page:       filter.Page,
-		PageSize:   filter.PageSize,
-		TotalPages: totalPages,
-		TotalItems: total,
-		Data:       attendances,
-	}, nil
+func (s *AttendanceService) GetAttendanceHistory(
+	user models.User,
+    filter models.AttendanceHistoryFilter,
+    departmentID *int,
+) (*models.PaginationResponse, error) {
+
+    // Nếu là trưởng phòng mà không có departmentID => lỗi
+    if user.Role == "Trưởng phòng" && departmentID == nil {
+        return nil, errors.New("department_id is required for department head")
+    }
+
+    attendances, total, err := s.repo.GetAttendanceHistory(filter, departmentID)
+    if err != nil {
+        return nil, err
+    }
+
+    totalPages := int(math.Ceil(float64(total) / float64(filter.PageSize)))
+
+    return &models.PaginationResponse{
+        Page:       filter.Page,
+        PageSize:   filter.PageSize,
+        TotalPages: totalPages,
+        TotalItems: total,
+        Data:       attendances,
+    }, nil
 }
+// AttendanceService
+func (s *AttendanceService) CanDepartmentHeadAccessUser(
+    targetUserID int,
+    departmentID int,
+) (bool, error) {
+    return s.repo.IsUserInDepartment(targetUserID, departmentID)
+}
+

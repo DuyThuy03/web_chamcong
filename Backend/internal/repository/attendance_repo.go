@@ -565,3 +565,24 @@ func (r *AttendanceRepository) GetAttendanceHistory(filter models.AttendanceHist
 	
 	return attendances, total, nil
 }
+// AttendanceRepository
+func (r *AttendanceRepository) IsUserInDepartment(
+    userID int,
+    departmentID int,
+) (bool, error) {
+
+    var exists bool
+    err := r.db.QueryRow(`
+        SELECT EXISTS (
+            SELECT 1
+            FROM users
+            WHERE id = $1 AND department_id = $2
+        )
+    `, userID, departmentID).Scan(&exists)
+
+    if err != nil {
+        return false, err
+    }
+
+    return exists, nil
+}
