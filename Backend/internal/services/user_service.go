@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
@@ -20,8 +22,12 @@ func NewUserService(userRepo *repository.UserRepository) *UserService {
 }
 
 // CreateUser - Tạo user mới
-func (s *UserService) CreateUser(req *models.CreateUserRequest) (*models.User, error) {
-	// Kiểm tra email đã tồn tại
+func (s *UserService) CreateUser(
+	auth *models.AuthContext,
+	req *models.CreateUserRequest,
+) (*models.User, error) {
+
+	// 1. Check email
 	existingUser, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
@@ -30,31 +36,46 @@ func (s *UserService) CreateUser(req *models.CreateUserRequest) (*models.User, e
 		return nil, fmt.Errorf("email đã tồn tại")
 	}
 
-	// Hash password
+	// 2. Hash password
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("lỗi mã hóa mật khẩu: %v", err)
 	}
 
-	// Tạo user object
+	// 3. Tạo user cơ bản
 	user := &models.User{
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: hashedPassword,
-		Role:     req.Role,
+		DepartmentID: sql.NullInt64{Int64: int64(auth.DepartmentID), Valid: true},
+		Role:     "Nhân viên",
 		Status:   "Hoạt động",
 	}
 
-	// Parse date of birth nếu có
+	// 4. GÁN DEPARTMENT THEO ROLE NGƯỜI TẠO
+	switch auth.Role {
+
+	case "Trưởng phòng":
+		// ÉP department = department của trưởng phòng
+		req.DepartmentID = &auth.DepartmentID
+
+	case "Quản lý", "Giám đốc":
+		if req.DepartmentID == nil {
+			return nil, fmt.Errorf("phải chọn phòng ban")
+		}
+
+	default:
+		return nil, fmt.Errorf("không có quyền tạo thành viên")
+	}
+
+	// 5. Optional fields
 	if req.DateOfBirth != nil {
-		parsedDate, err := time.Parse("2006-01-02", *req.DateOfBirth)
-		if err == nil {
+		if parsedDate, err := time.Parse("2006-01-02", *req.DateOfBirth); err == nil {
 			user.DateOfBirth.Time = parsedDate
 			user.DateOfBirth.Valid = true
 		}
 	}
 
-	// Set optional fields
 	if req.Address != nil {
 		user.Address.String = *req.Address
 		user.Address.Valid = true
@@ -70,19 +91,14 @@ func (s *UserService) CreateUser(req *models.CreateUserRequest) (*models.User, e
 		user.PhoneNumber.Valid = true
 	}
 
-	if req.DepartmentID != nil {
-		user.DepartmentID.Int64 = int64(*req.DepartmentID)
-		user.DepartmentID.Valid = true
-	}
-
-	// Tạo user trong database
-	err = s.userRepo.Create(user)
-	if err != nil {
+	// 6. Save DB
+	if err := s.userRepo.Create(user); err != nil {
 		return nil, fmt.Errorf("lỗi khi tạo user: %v", err)
 	}
 
 	return user, nil
 }
+
 
 // UpdateUser - Cập nhật user
 func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role string) error {
@@ -148,7 +164,7 @@ func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role
 	}
 
 	// Chỉ Quản lý và Giám đốc mới được update role, department, status
-	if role == "Quản lý" || role == "Giám đốc" {
+	if role == "Quản lý" || role == "Giám đốc" || role == "Trưởng phòng" {
 		if req.Role != nil {
 			user.Role = *req.Role
 		}
@@ -161,10 +177,22 @@ func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role
 		if req.Status != nil {
 			user.Status = *req.Status
 		}
+		if req.NewPassword != nil  {
+    hashed, err := bcrypt.GenerateFromPassword(
+        []byte(*req.NewPassword),
+        bcrypt.DefaultCost,
+    )
+    if err != nil {
+        return err
+    }
+    user.Password = string(hashed)
+}
 	}
+	
 
 	// Update vào database
 	err = s.userRepo.Update(user)
+	
 	if err != nil {
 		return fmt.Errorf("lỗi khi cập nhật user: %v", err)
 	}

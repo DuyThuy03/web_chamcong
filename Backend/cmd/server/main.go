@@ -232,7 +232,7 @@ func setupRouter(
                 manager.GET("/members/:id", managerHandler.GetMemberDetail)
                 manager.PUT("/members/:id", managerHandler.UpdateMember)
                 
-                // CRUD thành viên - chỉ Quản lý và Giám đốc
+                // CRUD thành viên - chỉ Quản lý và Giám đốc trưởng phòng mới có quyền này
                 manager.POST("/members", 
                     middleware.RequireAdminRole(),
                     managerHandler.CreateMember,
@@ -249,6 +249,8 @@ func setupRouter(
                 leaves.POST("", leaveHandler.Create)
                 leaves.GET("", leaveHandler.GetAll)
                 leaves.GET("/:id", leaveHandler.GetByID)
+                leaves.DELETE("/:id", leaveHandler.Delete)
+                leaves.PUT("/:id", leaveHandler.Cancel)
                 leaves.PUT("/:id/approve", 
                     middleware.RequireRole("Trưởng phòng", "Quản lý", "Giám đốc"),
                     leaveHandler.Approve,

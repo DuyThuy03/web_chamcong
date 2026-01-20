@@ -88,173 +88,193 @@ const HistoryPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-800">Lịch sử chấm công</h1>
+   <div className="space-y-6 p-4 sm:p-6">
+    {/* Header */}
+    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+      Lịch sử chấm công
+    </h1>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">Bộ lọc</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Từ ngày
-            </label>
-            <input
-              type="date"
-              name="from_date"
-              value={filters.from_date}
-              onChange={handleFilterChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Đến ngày
-            </label>
-            <input
-              type="date"
-              name="to_date"
-              value={filters.to_date}
-              onChange={handleFilterChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+    {/* Filters */}
+    <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+      <h2 className="text-lg font-semibold mb-4">Bộ lọc</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Từ ngày
+          </label>
+          <input
+            type="date"
+            name="from_date"
+            value={filters.from_date}
+            onChange={handleFilterChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Đến ngày
+          </label>
+          <input
+            type="date"
+            name="to_date"
+            value={filters.to_date}
+            onChange={handleFilterChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
+    </div>
 
-      {/* Records table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center">Đang tải...</div>
-        ) : records.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            Không có dữ liệu chấm công
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ngày
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ca làm việc
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Check-in
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Check-out
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Trạng thái
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Hành động
-                    </th>
+    {/* Records */}
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      {loading ? (
+        <div className="p-8 text-center">Đang tải...</div>
+      ) : records.length === 0 ? (
+        <div className="p-8 text-center text-gray-500">
+          Không có dữ liệu chấm công
+        </div>
+      ) : (
+        <>
+          {/* ===== DESKTOP TABLE ===== */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    Ngày
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    Ca
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    Check-in
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    Check-out
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    Trạng thái
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    Hành động
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y">
+                {records.map((r) => (
+                  <tr key={r.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 flex items-center gap-2">
+                      <Calendar size={16} className="text-gray-400" />
+                      {formatDate(r.day)}
+                    </td>
+                    <td className="px-6 py-4">{r.shift_name || "-"}</td>
+                    <td className="px-6 py-4">
+                      {r.checkin_time ? formatTime(r.checkin_time) : "-"}
+                    </td>
+                    <td className="px-6 py-4">
+                      {r.checkout_time ? formatTime(r.checkout_time) : "-"}
+                    </td>
+                    <td className="px-6 py-4">
+                      {r.work_status && getWorkStatusBadge(r.work_status)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => setSelectedRecord(r)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Eye size={18} />
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {records.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Calendar size={16} className="mr-2 text-gray-400" />
-                          {formatDate(record.day)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {record.shift_name || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {record.checkin_time
-                          ? formatTime(record.checkin_time)
-                          : "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {record.checkout_time
-                          ? formatTime(record.checkout_time)
-                          : "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {record.work_status &&
-                          getWorkStatusBadge(record.work_status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => setSelectedRecord(record)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <Eye size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ===== MOBILE CARD ===== */}
+          <div className="lg:hidden divide-y">
+            {records.map((r) => (
+              <div key={r.id} className="p-4 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold">
+                      {formatDate(r.day)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {r.shift_name || "Không ca"}
+                    </p>
+                  </div>
+                  {r.work_status && getWorkStatusBadge(r.work_status)}
+                </div>
+
+                <div className="text-sm text-gray-600">
+                  <p>Check-in: {r.checkin_time ? formatTime(r.checkin_time) : "-"}</p>
+                  <p>Check-out: {r.checkout_time ? formatTime(r.checkout_time) : "-"}</p>
+                </div>
+
+                <button
+                  onClick={() => setSelectedRecord(r)}
+                  className="w-full mt-2 text-blue-600 border border-blue-600 rounded-lg py-2 text-sm hover:bg-blue-50"
+                >
+                  Xem chi tiết
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="bg-gray-50 px-4 sm:px-6 py-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between border-t">
+            <div className="text-sm text-gray-700">
+              Hiển thị {(pagination.page - 1) * pagination.limit + 1} –{" "}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} /{" "}
+              {pagination.total}
             </div>
 
-            {/* Pagination */}
-            <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
-              <div className="text-sm text-gray-700">
-                Hiển thị {(pagination.page - 1) * pagination.limit + 1} -{" "}
-                {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
-                trong tổng số {pagination.total} bản ghi
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                >
-                  <ChevronLeft size={16} />
-                  Trước
-                </button>
-                <div className="flex items-center gap-2">
-                  {Array.from(
-                    { length: pagination.total_pages },
-                    (_, i) => i + 1,
-                  )
-                    .filter((page) => {
-                      return (
-                        page === 1 ||
-                        page === pagination.total_pages ||
-                        Math.abs(page - pagination.page) <= 1
-                      );
-                    })
-                    .map((page, index, array) => (
-                      <React.Fragment key={page}>
-                        {index > 0 && array[index - 1] !== page - 1 && (
-                          <span className="px-2">...</span>
-                        )}
-                        <button
-                          onClick={() => handlePageChange(page)}
-                          className={`px-4 py-2 border rounded-md ${
-                            pagination.page === page
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "border-gray-300 hover:bg-gray-100"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      </React.Fragment>
-                    ))}
-                </div>
-                <button
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={pagination.page === pagination.total_pages}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                >
-                  Sau
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                className="px-3 py-2 border rounded disabled:opacity-50"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              {Array.from({ length: pagination.total_pages }, (_, i) => i + 1)
+                .filter(
+                  (p) =>
+                    p === 1 ||
+                    p === pagination.total_pages ||
+                    Math.abs(p - pagination.page) <= 1,
+                )
+                .map((p, i, arr) => (
+                  <React.Fragment key={p}>
+                    {i > 0 && arr[i - 1] !== p - 1 && <span>…</span>}
+                    <button
+                      onClick={() => handlePageChange(p)}
+                      className={`px-3 py-2 border rounded ${
+                        pagination.page === p
+                          ? "bg-blue-600 text-white"
+                          : "hover:bg-gray-100"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  </React.Fragment>
+                ))}
+
+              <button
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.total_pages}
+                className="px-3 py-2 border rounded disabled:opacity-50"
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
+    </div>
 
       {/* Detail Modal */}
       {selectedRecord && (

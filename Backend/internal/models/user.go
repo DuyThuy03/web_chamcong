@@ -32,6 +32,7 @@ type UserResponse struct {
     DepartmentID   *int       `json:"department_id,omitempty"`
     DepartmentName *string    `json:"department_name,omitempty"`
     Status         string     `json:"status"`
+    Password      *string     `json:"-"`
     CreatedAt      time.Time  `json:"created_at"`
 UpdatedAt      time.Time  `json:"updated_at"`
  }
@@ -45,6 +46,7 @@ type UpdateUserRequest struct {
 	Role         *string `json:"role,omitempty"`
 	DepartmentID *int    `json:"department_id,omitempty"`
 	Status       *string `json:"status,omitempty"`
+    NewPassword  *string  `json:"new_password,omitempty"`
 }
 
 // type UserResponse struct {
@@ -69,7 +71,7 @@ type CreateUserRequest struct {
 	Address      *string `json:"address,omitempty"`
 	Gender       *string `json:"gender,omitempty"`
 	PhoneNumber  *string `json:"phone_number,omitempty"`
-	Password     string  `json:"password" binding:"required,min=6"`
-	Role         string  `json:"role" binding:"required,oneof=Nhân viên Trưởng phòng Quản lý Giám đốc"`
+	Password     string  `json:"password" binding:"required"`
+	
 	DepartmentID *int    `json:"department_id,omitempty"`
 }

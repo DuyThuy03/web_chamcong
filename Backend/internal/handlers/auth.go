@@ -144,9 +144,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
     log.Println("User found:", user.Email, "ID:", user.ID)
 
-    // Check password
+    // // Check password
     // if !utils.CheckPassword(req.Password, user.Password) {
-    //     log.Println("Invalid password for user:", req.Email)
+    //    log.Println("pass Nhập:", req.Password)
+    //     log.Println("pass Lưu trong DB:", user.Password)
     //     utils.ErrorResponse(c, http.StatusUnauthorized, "Sai mật khẩu")
     //     return
     // }

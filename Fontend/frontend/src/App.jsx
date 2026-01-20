@@ -12,6 +12,7 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import DirectorDashboard from "./pages/DirectorDashboard";
 // import ProfilePage from "./pages/ProfilePage";
 import MemberListPage from './pages/MemberListPage';
+import LeavesHeadPage from './pages/Leaves-headPage';
 
 // ...existing code...
 
@@ -153,6 +154,16 @@ function App() {
                 allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
               >
                 <MemberListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/department-head/leaves"
+            element={
+              <ProtectedRoute
+                allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
+              >
+                <LeavesHeadPage />
               </ProtectedRoute>
             }
           />

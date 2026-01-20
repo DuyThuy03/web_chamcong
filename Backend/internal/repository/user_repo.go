@@ -59,14 +59,14 @@ func (r *UserRepository) GetByID(id int) (*models.UserResponse, error) {
     
     err := r.db.QueryRow(`
         SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, 
-               u.phone_number, u.role, u.department_id, u.status, u.created_at,
+               u.phone_number,u.password, u.role, u.department_id, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
         WHERE u.id = $1
     `, id).Scan(
         &user.ID, &user.Name, &user.Email, &dob, &address, &gender,
-        &phone, &user.Role, &deptID, &user.Status, &user.CreatedAt, &deptName,
+        &phone, &user.Password, &user.Role, &deptID, &user.Status, &user.CreatedAt, &deptName,
     )
     
     if err == sql.ErrNoRows {
@@ -111,7 +111,7 @@ func (r *UserRepository) GetByDepartment(departmentID int, limit, offset int) ([
     
     // Get users
     rows, err := r.db.Query(`
-        SELECT u.id, u.name, u.email, u.role, u.department_id, u.status, u.created_at,
+        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, u.phone_number, u.role, u.department_id, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
@@ -131,7 +131,7 @@ func (r *UserRepository) GetByDepartment(departmentID int, limit, offset int) ([
         var deptName sql.NullString
         
         err := rows.Scan(
-            &user.ID, &user.Name, &user.Email, &user.Role,
+            &user.ID, &user.Name, &user.Email, &user.DateOfBirth, &user.Address, &user.Gender, &user.PhoneNumber, &user.Role,
             &deptID, &user.Status, &user.CreatedAt, &deptName,
         )
         if err != nil {
@@ -223,16 +223,55 @@ func (r *UserRepository) Create(user *models.User) error {
 }
 
 func (r *UserRepository) Update(user *models.User) error {
+    if user.Password != "" {
+        // Có đổi mật khẩu
+        _, err := r.db.Exec(`
+            UPDATE users 
+            SET name = $1, email = $2, password = $3,
+                date_of_birth = $4, address = $5, gender = $6,
+                phone_number = $7, role = $8, department_id = $9,
+                status = $10, updated_at = NOW()
+            WHERE id = $11
+        `,
+            user.Name,
+            user.Email,
+            user.Password, // đã hash
+            user.DateOfBirth,
+            user.Address,
+            user.Gender,
+            user.PhoneNumber,
+            user.Role,
+            user.DepartmentID,
+            user.Status,
+            user.ID,
+        )
+        return err
+    }
+
+    // Không đổi mật khẩu
     _, err := r.db.Exec(`
         UPDATE users 
-        SET name = $1, email = $2, date_of_birth = $3, address = $4, 
-            gender = $5, phone_number = $6, role = $7, department_id = $8,
+        SET name = $1, email = $2,
+            date_of_birth = $3, address = $4, gender = $5,
+            phone_number = $6, role = $7, department_id = $8,
             status = $9, updated_at = NOW()
         WHERE id = $10
-    `, user.Name, user.Email, user.DateOfBirth, user.Address, user.Gender,
-        user.PhoneNumber, user.Role, user.DepartmentID, user.Status, user.ID)
+    `,
+        user.Name,
+        user.Email,
+        user.DateOfBirth,
+        user.Address,
+        user.Gender,
+        user.PhoneNumber,
+        user.Role,
+        user.DepartmentID,
+        user.Status,
+        user.ID,
+    )
+
     return err
 }
+
 //hàm xóa user
 func (r *UserRepository) Delete(userID int) error {
     _, err := r.db.Exec(`DELETE FROM users WHERE id = $1`, userID)

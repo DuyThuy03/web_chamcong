@@ -72,15 +72,15 @@ const Layout = ({ children }) => {
           label: "Quản lý thành viên",
         },
         {
-          path: "/department/leave-requests",
+          path: "/department-head/leaves",
           icon: CheckSquare,
           label: "Duyệt nghỉ phép",
         },
-        {
-          path: "/department/attendance",
-          icon: IdCard ,
-          label: "Thông tin cá nhân",
-        },
+        // {
+        //   path: "/department/attendance",
+        //   icon: IdCard ,
+        //   label: "Thông tin cá nhân",
+        // },
       ],
       "Quản lý": [
         { path: "/manager/dashboard", icon: Home, label: "Dashboard Quản lý" },

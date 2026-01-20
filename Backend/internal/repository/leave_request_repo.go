@@ -257,10 +257,32 @@ func (r *LeaveRequestRepository) UpdateStatus(id int, status string, approvedByI
 	_, err := r.db.Exec(query, status, approvedByID, time.Now(), time.Now(), id)
 	return err
 }
+//cập nhật trạng thái DA_HUY cho yêu cầu nghỉ phép
 
 func (r *LeaveRequestRepository) GetUserIDByRequestID(id int) (int, error) {
 	var userID int
 	query := `SELECT user_id FROM "leaverequest" WHERE id = $1`
 	err := r.db.QueryRow(query, id).Scan(&userID)
 	return userID, err
+}
+//Hủy bỏ yêu cầu nghỉ phép
+func (r *LeaveRequestRepository) CancelRequest(id int) error {
+	query := `
+		UPDATE "leaverequest"
+		SET status = $1, updated_at = $2
+		WHERE id = $3
+	`
+
+	_, err := r.db.Exec(query, "DA_HUY", time.Now(), id)
+	return err
+}
+//Xóa yêu cầu nghỉ phép
+func (r *LeaveRequestRepository) Delete(id int) error {
+	query := `
+		DELETE FROM "leaverequest"
+		WHERE id = $1
+	`
+
+	_, err := r.db.Exec(query, id)
+	return err
 }

@@ -272,28 +272,47 @@ func (h *ManagerHandler) GetDepartmentMembers(c *gin.Context) {
 
 // CreateMember - Tạo thành viên mới (chỉ Quản lý và Giám đốc)
 func (h *ManagerHandler) CreateMember(c *gin.Context) {
+	// 1️⃣ Lấy info người đang đăng nhập từ context
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Chưa đăng nhập")
+		return
+	}
+
+	role, _ := middleware.GetUserRole(c)
+	deptID, _ := middleware.GetDepartmentID(c)
+
+	// 2️⃣ Bind request
 	var req models.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Dữ liệu không hợp lệ: "+err.Error())
 		return
 	}
 
-	// Tạo user
-	user, err := h.userService.CreateUser(&req)
+	// 3️⃣ Gọi service (truyền thông tin auth)
+	auth := &models.AuthContext{
+		UserID:       userID,
+		Role:         role,
+		DepartmentID: deptID,
+	}
+
+	user, err := h.userService.CreateUser(auth, &req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi tạo thành viên: "+err.Error())
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Lấy thông tin chi tiết user vừa tạo
+	// 4️⃣ Lấy user đầy đủ để trả về
 	userResponse, err := h.userRepo.GetByID(user.ID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi lấy thông tin thành viên: "+err.Error())
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	utils.SuccessResponse(c, http.StatusCreated, userResponse)
 }
+
+
 
 // UpdateMember - Cập nhật thành viên trong phòng ban
 func (h *ManagerHandler) UpdateMember(c *gin.Context) {

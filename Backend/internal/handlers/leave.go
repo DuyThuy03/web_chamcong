@@ -315,3 +315,71 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 
 	utils.SuccessResponse(c, http.StatusOK, nil)
 }
+//hàm hủy yêu cầu nghỉ phép
+	func (h *LeaveHandler) Cancel(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
+			return
+		}	
+		userID, _ := middleware.GetUserID(c)
+
+		// Check if request exists
+		request, err := h.leaveRepo.GetByID(id)
+		// if err != nil {
+		// 	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request"+ err.Error())
+		// 	return
+		// }	
+		if request == nil {
+			utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
+			return
+		}	
+		if request.UserID != userID {
+			utils.ErrorResponse(c, http.StatusForbidden, "You can only cancel your own leave requests")
+			return
+		}	
+		if request.Status != "CHO_DUYET" {
+			utils.ErrorResponse(c, http.StatusBadRequest, "Only pending requests can be cancelled")
+			return
+		}	
+		err = h.leaveRepo.CancelRequest(id)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to cancel leave request")
+			return
+		}
+		utils.SuccessResponse(c, http.StatusOK, nil)
+	}
+//xóa yêu cầu nghỉ phép
+func (h *LeaveHandler) Delete(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))	
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
+		return
+	}
+	userID, _ := middleware.GetUserID(c)
+
+	// Check if request exists
+	request, err := h.leaveRepo.GetByID(id)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request")
+		return
+	}
+	if request == nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
+		return
+	}
+	if request.UserID != userID {
+		utils.ErrorResponse(c, http.StatusForbidden, "You can only delete your own leave requests")
+		return
+	}	
+	if request.Status != "DA_HUY" && request.Status != "TU_CHOI" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Only cancelled or rejected requests can be deleted")
+		return
+	}	
+	err = h.leaveRepo.Delete(id)	
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to delete leave request")
+		return
+	}
+	utils.SuccessResponse(c, http.StatusOK, nil)
+}
