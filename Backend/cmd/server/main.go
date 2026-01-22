@@ -12,8 +12,6 @@ import (
 	"attendance-system/internal/middleware"
 	"attendance-system/internal/repository"
 	"attendance-system/internal/services"
-    
-
 
 	"github.com/gin-gonic/gin"
 )
@@ -220,13 +218,14 @@ func setupRouter(
             {
                 // Xem trạng thái điểm danh hôm nay
                 manager.GET("/attendance/today", managerHandler.GetTodayAttendanceStatus)
-                
+                // manager.GET("/members",userHandler.GetAll)
                 // Xem lịch sử chấm công của thành viên
-                manager.GET("/attendance/member-history", managerHandler.GetMemberAttendanceHistory)
+                // manager.GET("/attendance/member-history", managerHandler.GetMemberAttendanceHistory)
                 
                 // Xem lịch sử chấm công của phòng ban
-                manager.GET("/attendance/department-history", managerHandler.GetDepartmentAttendanceHistory)
-                
+                // manager.GET("/attendance/department-history", managerHandler.GetDepartmentAttendanceHistory)
+                //Thống kê cuối tháng
+                manager.GET("/attendance/monthly-summary", attendanceHandler.GetMonthlyAttendanceSummary)
                 // Quản lý thành viên
                 manager.GET("/members", managerHandler.GetDepartmentMembers)
                 manager.GET("/members/:id", managerHandler.GetMemberDetail)

@@ -24,6 +24,18 @@ const LeavesHeadPage = () => {
       setLoading(false);
     }
   };
+  const handleDelete = async (id) => {
+    if (!window.confirm("Bạn có chắc muốn xóa đơn này?")) return;
+    try {
+      await api.delete(`/leaves/${id}`);
+      alert("Đã xóa đơn nghỉ phép");
+      fetchLeaveRequests();
+    } catch (error) {
+      console.error("Error deleting leave request:", error);
+      alert("Không thể xóa đơn");
+    }
+  };
+
 
   const handleApproveLeave = async (leaveId) => {
     if (!window.confirm("Bạn có chắc muốn duyệt đơn này?")) return;
@@ -200,7 +212,11 @@ const LeavesHeadPage = () => {
                   <div>
                     <p className="font-semibold text-gray-900">{r.user_name}</p>
                     <p className="text-xs text-gray-500">
-                      {r.type || "Nghỉ phép"}
+                     {r.type === "NGHI_PHEP"
+                          ? "Nghỉ phép"
+                          : r.type === "DI_MUON"
+                            ? "Đi muộn"
+                            : "-"}
                     </p>
                   </div>
 
@@ -245,6 +261,14 @@ const LeavesHeadPage = () => {
                       </button>
                     </div>
                   )}
+                   {(r.status === "DA_HUY" || r.status === "DA_DUYET" || r.status === "TU_CHOI") &&(
+                             <button
+                            onClick={() => handleDelete(r.id)}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
+                          >
+                            Xóa
+                          </button>
+                        )}
                 </div>
               ))}
             </div>

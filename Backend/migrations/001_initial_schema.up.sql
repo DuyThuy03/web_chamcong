@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS LeaveRequest (
     session TEXT CHECK (session IN ('SANG', 'CHIEU', 'CA_NGAY')),
     expected_arrival_time TIME,
     reason TEXT,
-    status TEXT DEFAULT 'CHO_DUYET' CHECK (status IN ('CHO_DUYET', 'DA_DUYET', 'TU_CHOI')),
+    status TEXT DEFAULT 'CHO_DUYET' CHECK (status IN ('CHO_DUYET', 'DA_DUYET', 'TU_CHOI', 'DA_HUY')),
     approved_by_id INT REFERENCES users(id) ON DELETE SET NULL,
     approved_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),

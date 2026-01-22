@@ -160,7 +160,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.UserResponse, int,
     }
     
     rows, err := r.db.Query(`
-        SELECT u.id, u.name, u.email, u.role, u.department_id, u.status, u.created_at,
+        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, u.phone_number, u.role, u.department_id, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
@@ -179,7 +179,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.UserResponse, int,
         var deptName sql.NullString
         
         err := rows.Scan(
-            &user.ID, &user.Name, &user.Email, &user.Role,
+            &user.ID, &user.Name, &user.Email, &user.DateOfBirth, &user.Address, &user.Gender, &user.PhoneNumber, &user.Role,
             &deptID, &user.Status, &user.CreatedAt, &deptName,
         )
         if err != nil {

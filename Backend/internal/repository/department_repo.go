@@ -48,6 +48,7 @@ func (r *DepartmentRepository) GetAll() ([]models.Department, error) {
 	return departments, nil
 }
 
+
 func (r *DepartmentRepository) GetByID(id int) (*models.Department, error) {
 	query := `
 		SELECT d.id, d.name, d.leader_id, u.full_name as leader_name, d.created_at, d.updated_at

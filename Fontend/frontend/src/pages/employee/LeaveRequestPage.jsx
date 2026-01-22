@@ -319,7 +319,11 @@ const LeaveRequestPage = () => {
                   {leaveRequests.map((r) => (
                     <tr key={r.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm">
-                        {r.type || "Nghỉ phép"}
+                         {r.type === "NGHI_PHEP"
+                          ? "Nghỉ phép"
+                          : r.type === "DI_MUON"
+                            ? "Đi muộn"
+                            : "-"}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {formatDate(r.from_date)}
@@ -348,7 +352,7 @@ const LeaveRequestPage = () => {
                             Hủy
                           </button>
                         )}
-                        {r.status === "DA_HUY" && (
+                        {r.status === "DA_HUY" && r.status==="DA_DUYET"(
                           <button
                             onClick={() => handleDelete(r.id)}
                             className="text-red-600 hover:text-red-800 font-medium"

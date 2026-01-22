@@ -76,27 +76,27 @@ const Layout = ({ children }) => {
           icon: CheckSquare,
           label: "Duyệt nghỉ phép",
         },
-        // {
-        //   path: "/department/attendance",
-        //   icon: IdCard ,
-        //   label: "Thông tin cá nhân",
-        // },
+        {
+          path: "/department-head/history",
+          icon: History ,
+          label: "Lịch sử chấm công ",
+        },
       ],
       "Quản lý": [
-        { path: "/manager/dashboard", icon: Home, label: "Dashboard Quản lý" },
-        ...baseItems,
-        { path: "/manager/employees", icon: Users, label: "Quản lý nhân viên" },
+      
+        { path: "/manager/member", icon: Users, label: "Quản lý nhân viên" },
         {
-          path: "/manager/departments",
-          icon: Building,
-          label: "Quản lý phòng ban",
+          path: "/manager/history",
+          icon: History,
+          label: "Lịch sử chấm công",
         },
         {
-          path: "/manager/attendance",
-          icon: BarChart3,
-          label: "Báo cáo chấm công",
+          path: "/manager/leave",
+          icon: CheckSquare,
+          label: "Duyệt đơn nghỉ phép",
         },
-        { path: "/manager/reports", icon: FileText, label: "Thống kê báo cáo" },
+      
+        { path: "/manager/sumary", icon: FileText, label: "Thống kê báo cáo" },
       ],
       "Giám đốc": [
         {

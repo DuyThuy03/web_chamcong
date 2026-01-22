@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -13,6 +14,16 @@ import (
 type AttendanceRepository struct {
     db      *sql.DB
     baseURL string
+}
+type MonthlyAttendanceSummary struct {
+    UserID           int
+    UserName         string
+    DepartmentName   string
+    TotalDays        int
+    WorkingDays      int
+    AbsentDays       int
+    LeaveDays        int
+    LateDays         int
 }
 
 func NewAttendanceRepository(db *sql.DB, baseURL string) *AttendanceRepository {
@@ -146,7 +157,14 @@ func (r *AttendanceRepository) GetByID(id int) (*models.CheckIOResponse, error) 
     return resp, nil
 }
 
-func (r *AttendanceRepository) GetHistory(userID *int, departmentID *int, fromDate, toDate time.Time, limit, offset int) ([]*models.CheckIOResponse, int, error) {
+func (r *AttendanceRepository) GetHistory(
+    userID *int,
+    departmentID *int,
+    username string,
+    fromDate, toDate time.Time,
+    limit, offset int,
+) ([]*models.CheckIOResponse, int, error) {
+
     query := `
         SELECT c.id, c.user_id, u.name as user_name, d.name as department_name,
                c.day, c.checkin_time, c.checkout_time,
@@ -159,52 +177,58 @@ func (r *AttendanceRepository) GetHistory(userID *int, departmentID *int, fromDa
         LEFT JOIN shifts s ON c.shift_id = s.id
         WHERE c.day BETWEEN $1 AND $2
     `
-    
+
     args := []interface{}{fromDate, toDate}
     argCount := 2
-    
+
     if userID != nil {
-    argCount++
-    query += " AND c.user_id = $" + strconv.Itoa(argCount)
-    args = append(args, *userID)
-}
+        argCount++
+        query += " AND c.user_id = $" + strconv.Itoa(argCount)
+        args = append(args, *userID)
+    }
 
-if departmentID != nil {
-    argCount++
-    query += " AND u.department_id = $" + strconv.Itoa(argCount)
-    args = append(args, *departmentID)
-}
+    if departmentID != nil {
+        argCount++
+        query += " AND u.department_id = $" + strconv.Itoa(argCount)
+        args = append(args, *departmentID)
+    }
 
-    
-    // Get total count
+    // ✅ FILTER THEO TÊN
+    if username != "" {
+        argCount++
+        query += " AND LOWER(u.name) LIKE $" + strconv.Itoa(argCount)
+        args = append(args, "%"+strings.ToLower(username)+"%")
+    }
+
+    // ===== COUNT =====
     countQuery := `SELECT COUNT(*) FROM (` + query + `) as count_table`
     var total int
-    err := r.db.QueryRow(countQuery, args...).Scan(&total)
+    if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+        return nil, 0, err
+    }
+
+    // ===== DATA =====
+    query += " ORDER BY c.day DESC, c.checkin_time DESC"
+
+    argCount++
+    query += " LIMIT $" + strconv.Itoa(argCount)
+    args = append(args, limit)
+
+    argCount++
+    query += " OFFSET $" + strconv.Itoa(argCount)
+    args = append(args, offset)
+
+    rows, err := r.db.Query(query, args...)
     if err != nil {
         return nil, 0, err
     }
-    
-    // Get records
-   query += " ORDER BY c.day DESC, c.checkin_time DESC"
-argCount++
-query += " LIMIT $" + strconv.Itoa(argCount)
-args = append(args, limit)
+    defer rows.Close()
 
-argCount++
-query += " OFFSET $" + strconv.Itoa(argCount)
-args = append(args, offset)
-
-rows, err := r.db.Query(query, args...)
-if err != nil {
-    return nil, 0, err
-}
-defer rows.Close()
-
-records := make([]*models.CheckIOResponse, 0)
-for rows.Next() {
-    resp := &models.CheckIOResponse{}
+    records := make([]*models.CheckIOResponse, 0)
+    for rows.Next() {
+        resp := &models.CheckIOResponse{}
         var deptName sql.NullString
-        
+
         err := rows.Scan(
             &resp.ID, &resp.UserID, &resp.UserName, &deptName,
             &resp.Day, &resp.CheckinTime, &resp.CheckoutTime,
@@ -215,26 +239,26 @@ for rows.Next() {
         if err != nil {
             return nil, 0, err
         }
-        
+
         if deptName.Valid {
             resp.DepartmentName = &deptName.String
         }
-        
-        // Convert image paths to URLs
+
         if resp.CheckinImage != nil {
-            imageURL := r.convertPathToURL(*resp.CheckinImage)
-            resp.CheckinImage = &imageURL
+            url := r.convertPathToURL(*resp.CheckinImage)
+            resp.CheckinImage = &url
         }
         if resp.CheckoutImage != nil {
-            imageURL := r.convertPathToURL(*resp.CheckoutImage)
-            resp.CheckoutImage = &imageURL
+            url := r.convertPathToURL(*resp.CheckoutImage)
+            resp.CheckoutImage = &url
         }
-        
+
         records = append(records, resp)
     }
-    
+
     return records, total, nil
 }
+
 
 // GetTodayAttendanceByDepartment - Lấy trạng thái điểm danh hôm nay của thành viên trong phòng ban 
 
@@ -585,4 +609,101 @@ func (r *AttendanceRepository) IsUserInDepartment(
     }
 
     return exists, nil
+}
+
+func (r *AttendanceRepository) GetMonthlyAttendanceSummary(
+    ctx context.Context,
+    year int,
+    month int,
+    departmentID *int,
+) ([]MonthlyAttendanceSummary, error) {
+
+    query := `WITH days_in_month AS (
+    SELECT generate_series(
+        date_trunc('month', make_date($1, $2, 1)),
+        (date_trunc('month', make_date($1, $2, 1)) + interval '1 month - 1 day')::date,
+        interval '1 day'
+    )::date AS day
+)
+SELECT
+    u.id AS user_id,
+    u.name AS user_name,
+    d.name AS department_name,
+
+    COUNT(DISTINCT dim.day) AS total_days,
+
+   COUNT(DISTINCT c.day) FILTER (
+    WHERE c.work_status IN ('ON_TIME', 'LATE')
+     
+      AND c.checkin_time IS NOT NULL
+      AND c.checkout_time IS NOT NULL
+) AS working_days,
+
+
+    COUNT(DISTINCT dim.day) FILTER (
+    WHERE lr.id IS NOT NULL
+) AS leave_days,
+
+
+  COUNT(DISTINCT dim.day)
+- COUNT(DISTINCT c.day) FILTER (
+    WHERE c.work_status IN ('ON_TIME', 'LATE')
+      AND c.leave_status = 'NONE'
+      AND c.checkin_time IS NOT NULL
+      AND c.checkout_time IS NOT NULL
+)
+- COUNT(DISTINCT dim.day) FILTER (
+    WHERE lr.id IS NOT NULL
+) AS absent_days
+,
+
+    COUNT(DISTINCT c.day) FILTER (
+        WHERE c.work_status = 'LATE'
+    ) AS late_days
+
+FROM users u
+LEFT JOIN department d ON d.id = u.department_id
+CROSS JOIN days_in_month dim
+LEFT JOIN CheckIO c
+    ON c.user_id = u.id AND c.day = dim.day
+LEFT JOIN LeaveRequest lr
+    ON lr.user_id = u.id
+   AND lr.status = 'DA_DUYET'
+   AND dim.day BETWEEN lr.from_date AND lr.to_date
+
+WHERE u.role = 'Nhân viên'
+  AND u.status = 'Hoạt động'
+  AND ($3::int IS NULL OR u.department_id = $3::int)
+
+GROUP BY u.id, u.name, d.name
+ORDER BY u.name;
+`
+
+    rows, err := r.db.QueryContext(ctx, query, year, month, departmentID)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var results []MonthlyAttendanceSummary
+
+    for rows.Next() {
+        var s MonthlyAttendanceSummary
+        err := rows.Scan(
+            &s.UserID,
+            &s.UserName,
+            &s.DepartmentName,
+            &s.TotalDays,
+            &s.WorkingDays,
+            &s.LeaveDays,
+            &s.AbsentDays,
+            &s.LateDays,
+        )
+        if err != nil {
+            return nil, err
+        }
+        results = append(results, s)
+    }
+
+    return results, nil
 }

@@ -60,155 +60,155 @@ func (h *ManagerHandler) GetTodayAttendanceStatus(c *gin.Context) {
 }
 
 // GetMemberAttendanceHistory - Xem lịch sử chấm công của một thành viên
-func (h *ManagerHandler) GetMemberAttendanceHistory(c *gin.Context) {
-	role, _ := middleware.GetUserRole(c)
-	currentDeptID, _ := middleware.GetDepartmentID(c)
+// func (h *ManagerHandler) GetMemberAttendanceHistory(c *gin.Context) {
+// 	role, _ := middleware.GetUserRole(c)
+// 	currentDeptID, _ := middleware.GetDepartmentID(c)
 
-	// Lấy user_id từ query parameter
-	userIDStr := c.Query("user_id")
-	if userIDStr == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Thiếu tham số user_id")
-		return
-	}
+// 	// Lấy user_id từ query parameter
+// 	userIDStr := c.Query("user_id")
+// 	if userIDStr == "" {
+// 		utils.ErrorResponse(c, http.StatusBadRequest, "Thiếu tham số user_id")
+// 		return
+// 	}
 
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "user_id không hợp lệ")
-		return
-	}
+// 	userID, err := strconv.Atoi(userIDStr)
+// 	if err != nil {
+// 		utils.ErrorResponse(c, http.StatusBadRequest, "user_id không hợp lệ")
+// 		return
+// 	}
 
-	// Kiểm tra quyền truy cập
-	if role == "Trưởng phòng" {
-		// Kiểm tra user có cùng phòng ban không
-		user, err := h.userRepo.GetUserByID(userID)
-		if err != nil || user == nil {
-			utils.ErrorResponse(c, http.StatusNotFound, "Không tìm thấy thành viên")
-			return
-		}
+// 	// Kiểm tra quyền truy cập
+// 	if role == "Trưởng phòng" {
+// 		// Kiểm tra user có cùng phòng ban không
+// 		user, err := h.userRepo.GetUserByID(userID)
+// 		if err != nil || user == nil {
+// 			utils.ErrorResponse(c, http.StatusNotFound, "Không tìm thấy thành viên")
+// 			return
+// 		}
 
-		if !user.DepartmentID.Valid || int(user.DepartmentID.Int64) != currentDeptID {
-			utils.ErrorResponse(c, http.StatusForbidden, "Bạn chỉ có thể xem lịch sử của thành viên trong phòng")
-			return
-		}
-	}
+// 		if !user.DepartmentID.Valid || int(user.DepartmentID.Int64) != currentDeptID {
+// 			utils.ErrorResponse(c, http.StatusForbidden, "Bạn chỉ có thể xem lịch sử của thành viên trong phòng")
+// 			return
+// 		}
+// 	}
 
-	// Lấy tham số phân trang và ngày
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	fromDateStr := c.DefaultQuery("from_date", time.Now().AddDate(0, -1, 0).Format("2006-01-02"))
-	toDateStr := c.DefaultQuery("to_date", time.Now().Format("2006-01-02"))
+// 	// Lấy tham số phân trang và ngày
+// 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+// 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+// 	fromDateStr := c.DefaultQuery("from_date", time.Now().AddDate(0, -1, 0).Format("2006-01-02"))
+// 	toDateStr := c.DefaultQuery("to_date", time.Now().Format("2006-01-02"))
 
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
+// 	if page < 1 {
+// 		page = 1
+// 	}
+// 	if limit < 1 || limit > 100 {
+// 		limit = 20
+// 	}
 
-	offset := (page - 1) * limit
+// 	offset := (page - 1) * limit
 
-	fromDate, err := time.Parse("2006-01-02", fromDateStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "from_date không hợp lệ")
-		return
-	}
+// 	fromDate, err := time.Parse("2006-01-02", fromDateStr)
+// 	if err != nil {
+// 		utils.ErrorResponse(c, http.StatusBadRequest, "from_date không hợp lệ")
+// 		return
+// 	}
 
-	toDate, err := time.Parse("2006-01-02", toDateStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "to_date không hợp lệ")
-		return
-	}
+// 	toDate, err := time.Parse("2006-01-02", toDateStr)
+// 	if err != nil {
+// 		utils.ErrorResponse(c, http.StatusBadRequest, "to_date không hợp lệ")
+// 		return
+// 	}
 
-	// Lấy lịch sử
-	history, total, err := h.attendanceRepo.GetHistory(&userID, nil, fromDate, toDate, limit, offset)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi lấy lịch sử chấm công: "+err.Error())
-		return
-	}
+// 	// Lấy lịch sử
+// 	history, total, err := h.attendanceRepo.GetHistory(&userID, nil, fromDate, toDate, limit, offset)
+// 	if err != nil {
+// 		utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi lấy lịch sử chấm công: "+err.Error())
+// 		return
+// 	}
 
-	totalPages := (total + limit - 1) / limit
-	pagination := utils.Pagination{
-		Total:      total,
-		Page:       page,
-		Limit:      limit,
-		TotalPages: totalPages,
-	}
+// 	totalPages := (total + limit - 1) / limit
+// 	pagination := utils.Pagination{
+// 		Total:      total,
+// 		Page:       page,
+// 		Limit:      limit,
+// 		TotalPages: totalPages,
+// 	}
 
-	utils.PaginatedSuccessResponse(c, http.StatusOK, history, pagination)
-}
+// 	utils.PaginatedSuccessResponse(c, http.StatusOK, history, pagination)
+// }
 
 // GetDepartmentAttendanceHistory - Xem lịch sử chấm công của toàn bộ phòng ban
-func (h *ManagerHandler) GetDepartmentAttendanceHistory(c *gin.Context) {
-	role, _ := middleware.GetUserRole(c)
-	currentDeptID, _ := middleware.GetDepartmentID(c)
+// func (h *ManagerHandler) GetDepartmentAttendanceHistory(c *gin.Context) {
+// 	role, _ := middleware.GetUserRole(c)
+// 	currentDeptID, _ := middleware.GetDepartmentID(c)
 
-	// Lấy department_id từ query (nếu là Quản lý hoặc Giám đốc)
-	var deptID *int
-	deptIDStr := c.Query("department_id")
+// 	// Lấy department_id từ query (nếu là Quản lý hoặc Giám đốc)
+// 	var deptID *int
+// 	deptIDStr := c.Query("department_id")
 	
-	if role == "Trưởng phòng" {
-		// Trưởng phòng chỉ xem được phòng ban của mình
-		deptID = &currentDeptID
-	} else if role == "Quản lý" || role == "Giám đốc" {
-		// Quản lý và Giám đốc có thể chọn phòng ban hoặc xem tất cả
-		if deptIDStr != "" {
-			id, err := strconv.Atoi(deptIDStr)
-			if err != nil {
-				utils.ErrorResponse(c, http.StatusBadRequest, "department_id không hợp lệ")
-				return
-			}
-			deptID = &id
-		}
-		// Nếu không có department_id, deptID = nil => xem tất cả
-	} else {
-		utils.ErrorResponse(c, http.StatusForbidden, "Bạn không có quyền truy cập")
-		return
-	}
+// 	if role == "Trưởng phòng" {
+// 		// Trưởng phòng chỉ xem được phòng ban của mình
+// 		deptID = &currentDeptID
+// 	} else if role == "Quản lý" || role == "Giám đốc" {
+// 		// Quản lý và Giám đốc có thể chọn phòng ban hoặc xem tất cả
+// 		if deptIDStr != "" {
+// 			id, err := strconv.Atoi(deptIDStr)
+// 			if err != nil {
+// 				utils.ErrorResponse(c, http.StatusBadRequest, "department_id không hợp lệ")
+// 				return
+// 			}
+// 			deptID = &id
+// 		}
+// 		// Nếu không có department_id, deptID = nil => xem tất cả
+// 	} else {
+// 		utils.ErrorResponse(c, http.StatusForbidden, "Bạn không có quyền truy cập")
+// 		return
+// 	}
 
-	// Lấy tham số phân trang và ngày
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	fromDateStr := c.DefaultQuery("from_date", time.Now().AddDate(0, -1, 0).Format("2006-01-02"))
-	toDateStr := c.DefaultQuery("to_date", time.Now().Format("2006-01-02"))
+// 	// Lấy tham số phân trang và ngày
+// 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+// 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+// 	fromDateStr := c.DefaultQuery("from_date", time.Now().AddDate(0, -1, 0).Format("2006-01-02"))
+// 	toDateStr := c.DefaultQuery("to_date", time.Now().Format("2006-01-02"))
 
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
+// 	if page < 1 {
+// 		page = 1
+// 	}
+// 	if limit < 1 || limit > 100 {
+// 		limit = 20
+// 	}
 
-	offset := (page - 1) * limit
+// 	offset := (page - 1) * limit
 
-	fromDate, err := time.Parse("2006-01-02", fromDateStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "from_date không hợp lệ")
-		return
-	}
+// 	fromDate, err := time.Parse("2006-01-02", fromDateStr)
+// 	if err != nil {
+// 		utils.ErrorResponse(c, http.StatusBadRequest, "from_date không hợp lệ")
+// 		return
+// 	}
 
-	toDate, err := time.Parse("2006-01-02", toDateStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "to_date không hợp lệ")
-		return
-	}
+// 	toDate, err := time.Parse("2006-01-02", toDateStr)
+// 	if err != nil {
+// 		utils.ErrorResponse(c, http.StatusBadRequest, "to_date không hợp lệ")
+// 		return
+// 	}
 
-	// Lấy lịch sử
-	history, total, err := h.attendanceRepo.GetHistory(nil, deptID, fromDate, toDate, limit, offset)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi lấy lịch sử chấm công: "+err.Error())
-		return
-	}
+// 	// Lấy lịch sử
+// 	history, total, err := h.attendanceRepo.GetHistory(nil, deptID, fromDate, toDate, limit, offset)
+// 	if err != nil {
+// 		utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi lấy lịch sử chấm công: "+err.Error())
+// 		return
+// 	}
 
-	totalPages := (total + limit - 1) / limit
-	pagination := utils.Pagination{
-		Total:      total,
-		Page:       page,
-		Limit:      limit,
-		TotalPages: totalPages,
-	}
+// 	totalPages := (total + limit - 1) / limit
+// 	pagination := utils.Pagination{
+// 		Total:      total,
+// 		Page:       page,
+// 		Limit:      limit,
+// 		TotalPages: totalPages,
+// 	}
 
-	utils.PaginatedSuccessResponse(c, http.StatusOK, history, pagination)
-}
+// 	utils.PaginatedSuccessResponse(c, http.StatusOK, history, pagination)
+// }
 
 // GetDepartmentMembers - Lấy danh sách thành viên trong phòng ban
 func (h *ManagerHandler) GetDepartmentMembers(c *gin.Context) {

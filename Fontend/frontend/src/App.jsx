@@ -3,17 +3,21 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "../../frontend/src/contexts/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/employee/DashboardPage";
-import AttendancePage from "./pages/AttendancePage";
+import AttendancePage from "./pages/employee/AttendancePage";
 import HistoryPage from "./pages/employee/HistoryPage";
 import LeaveRequestPage from "./pages/employee/LeaveRequestPage";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import DepartmentHeadDashboard from "./pages/DepartmentHead/DepartmentHeadDashboard";
-import ManagerDashboard from "./pages/ManagerDashboard";
-import DirectorDashboard from "./pages/DirectorDashboard";
+// import ManagerDashboard from "./pages/ManagerDashboard";
+// import DirectorDashboard from "./pages/DirectorDashboard";
 // import ProfilePage from "./pages/ProfilePage";
 import MemberListPage from "./pages/DepartmentHead/MemberListPage";
 import LeavesHeadPage from "./pages/DepartmentHead/Leaves-headPage";
-
+import History from "./pages/DepartmentHead/History";
+import MemberList from "./pages/manager/MemberList";
+import HistoryManager from "./pages/manager/History";
+import SummaryPage from "./pages/manager/ManagerDashboard";
+import LeavesPage from "./pages/manager/leaves_manager";
 // ...existing code...
 
 <Routes>
@@ -167,26 +171,68 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/department-head/history"
+            element={
+              <ProtectedRoute
+                allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
+              >
+                <History />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Manager Routes */}
-          <Route
+          {/* <Route
             path="/manager/dashboard"
             element={
-              <ProtectedRoute allowedRoles={["Quản lý", "Giám đốc"]}>
+              <ProtectedRoute allowedRoles={["Quản lý"]}>
                 <ManagerDashboard />
+              </ProtectedRoute>
+            }
+          /> */}
+          <Route
+            path="/manager/member"
+            element={
+              <ProtectedRoute allowedRoles={["Quản lý"]}>
+                <MemberList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/history"
+            element={
+              <ProtectedRoute allowedRoles={["Quản lý"]}>
+                <HistoryManager />
+              </ProtectedRoute>
+            }
+          />
+           <Route
+            path="/manager/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["Quản lý"]}>
+                <SummaryPage />
+              </ProtectedRoute>
+            }
+          />
+           <Route
+            path="/manager/leave"
+            element={
+              <ProtectedRoute allowedRoles={["Quản lý"]}>
+                <LeavesPage />
               </ProtectedRoute>
             }
           />
 
           {/* Director Routes */}
-          <Route
+          {/* <Route
             path="/director/dashboard"
             element={
               <ProtectedRoute allowedRoles={["Giám đốc"]}>
                 <DirectorDashboard />
               </ProtectedRoute>
             }
-          />
+          /> */}
 
           {/* Legacy dashboard route - redirect to role-based dashboard */}
           <Route path="/dashboard" element={<RootRedirect />} />

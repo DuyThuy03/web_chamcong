@@ -3,8 +3,10 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	
 	"attendance-system/internal/middleware"
 	"attendance-system/internal/services"
 	"attendance-system/internal/utils"
@@ -138,6 +140,7 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 	role, _ := middleware.GetUserRole(c)
 
 	userIDStr := c.Query("user_id")
+	userName := strings.TrimSpace(c.Query("user_name")) 
 	fromDateStr := c.Query("from_date")
 	toDateStr := c.Query("to_date")
 	pageStr := c.DefaultQuery("page", "1")
@@ -158,7 +161,7 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 		currentDeptID, _ := middleware.GetDepartmentID(c)
 		departmentID = &currentDeptID
 
-		// Nếu lọc theo user
+		// Nếu lọc theo user_id (cũ)
 		if userIDStr != "" {
 			uid, err := strconv.Atoi(userIDStr)
 			if err != nil {
@@ -238,6 +241,7 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 	records, total, err := h.attendanceService.GetHistory(
 		targetUserID,
 		departmentID,
+		userName, 
 		fromDate,
 		toDate,
 		limit,
@@ -259,6 +263,7 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 }
 
 
+
 func (h *AttendanceHandler) GetToday(c *gin.Context) {
     userID, _ := middleware.GetUserID(c)
     
@@ -277,4 +282,38 @@ func (h *AttendanceHandler) GetToday(c *gin.Context) {
     }
 
     utils.SuccessResponse(c, http.StatusOK, record)
+}
+
+func (h *AttendanceHandler) GetMonthlyAttendanceSummary(c *gin.Context) {
+	userID, _ := middleware.GetUserID(c)
+	role, _ := middleware.GetUserRole(c)
+	departmentIDValue, _ := middleware.GetDepartmentID(c)
+	departmentID := &departmentIDValue
+
+
+	monthStr := c.Query("month") 
+	if monthStr == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Month parameter is required")
+		return
+	}
+
+	monthTime, err := time.Parse("2006-01", monthStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid month format. Use YYYY-MM")
+		return
+	}
+
+	summary, err := h.attendanceService.GetMonthlySummary(
+		c.Request.Context(),
+		userID,
+		role,
+		departmentID,
+		monthTime,
+	)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusForbidden, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, summary)
 }

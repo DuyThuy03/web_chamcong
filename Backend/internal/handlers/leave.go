@@ -372,7 +372,7 @@ func (h *LeaveHandler) Delete(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusForbidden, "You can only delete your own leave requests")
 		return
 	}	
-	if request.Status != "DA_HUY" && request.Status != "TU_CHOI" {
+	if request.Status != "DA_HUY" && request.Status != "TU_CHOI" && request.Status !="DA_DUYET" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Only cancelled or rejected requests can be deleted")
 		return
 	}	

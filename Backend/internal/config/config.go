@@ -80,9 +80,9 @@ func Load() *Config {
             RefreshExpiry: jwtRefreshExpiry,
         },
         Server: ServerConfig{
-            Port:              getEnv("SERVER_PORT", "8080"),
+            Port:              getEnv("SERVER_PORT", "8001"),
             Host:              getEnv("SERVER_HOST", "0.0.0.0"),
-            BaseURL:           getEnv("BASE_URL", "http://localhost:8080"),
+            BaseURL:           getEnv("BASE_URL", "http://localhost:8001"),
             CORSAllowedOrigins: []string{
                 "http://localhost:5173",
                 "http://localhost:3000",

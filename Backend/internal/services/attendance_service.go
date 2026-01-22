@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -194,10 +195,11 @@ func (s *AttendanceService) CheckOut(
 func (s *AttendanceService) GetHistory(
 	userID *int,
 	departmentID *int,
+	username string,
 	from_date, to_date time.Time,
 	limit, offset int,
 ) ([]*models.CheckIOResponse, int, error) {
-	return s.repo.GetHistory(userID, departmentID, from_date, to_date, limit, offset)
+	return s.repo.GetHistory(userID, departmentID, username, from_date, to_date, limit, offset)
 }
 //hàm GetByUserAndDay lấy bản ghi CheckIO theo userID và ngày
 func (s *AttendanceService) GetByUserAndDay(
@@ -330,5 +332,54 @@ func (s *AttendanceService) CanDepartmentHeadAccessUser(
     departmentID int,
 ) (bool, error) {
     return s.repo.IsUserInDepartment(targetUserID, departmentID)
+}
+
+func (s *AttendanceService) GetMonthlySummary(
+	ctx context.Context,
+	userID int,
+	role string,
+	departmentID *int,
+	month time.Time,
+) ([]models.MonthlySummaryResponse, error) {
+
+	year := month.Year()
+	monthNum := int(month.Month())
+
+	var filterDepartmentID *int
+	switch role {
+	case "Quản lý":
+		filterDepartmentID = nil
+	case "Trưởng phòng", "Nhân viên":
+		filterDepartmentID = departmentID
+	default:
+		return nil, errors.New("permission denied")
+	}
+
+	
+	repoResults, err := s.repo.GetMonthlyAttendanceSummary(
+		ctx,
+		year,
+		monthNum,
+		filterDepartmentID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]models.MonthlySummaryResponse, 0, len(repoResults))
+	for _, r := range repoResults {
+		results = append(results, models.MonthlySummaryResponse{
+			UserID:         r.UserID,
+			UserName:       r.UserName,
+			DepartmentName: r.DepartmentName,
+			TotalDays:      r.TotalDays,
+			WorkingDays:    r.WorkingDays,
+			AbsentDays:     r.AbsentDays,
+			LeaveDays:      r.LeaveDays,
+			LateDays:       r.LateDays,
+		})
+	}
+
+	return results, nil
 }
 
