@@ -323,6 +323,10 @@ const MemberListPage = () => {
                             <p className="font-medium text-gray-900">
                               {m.name}
                             </p>
+                            <p className="font-medium text-gray-900">
+                              {m.gender}
+                            </p>
+                            
                             <p className="text-sm text-gray-500 flex items-center gap-1">
                               <Mail size={12} /> {m.email}
                             </p>
@@ -689,7 +693,7 @@ const MemberListPage = () => {
                     className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   >
                     <option value="Hoạt động">Hoạt động</option>
-                    <option value="Ngưng hoạt động">Ngưng hoạt động</option>
+                    <option value="Không hoạt động">Không hoạt động</option>
                   </select>
                 </div>
 

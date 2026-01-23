@@ -2,8 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { formatDate, formatTime } from "../../until/helper";
 import api from "../../service/api";
+import { wsService } from "../../service/ws";
+import { useAuth } from "../../contexts/AuthContext";
+import {isInDateRange} from "../../until/helper";
 
 const HistoryPage = () => {
+    const { user } = useAuth();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   //   const [viewingImage, setViewingImage] = useState(null);
@@ -26,10 +30,74 @@ const HistoryPage = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [viewingImage, setViewingImage] = useState(null);
 
+
   useEffect(() => {
     loadHistory();
-    // eslint-disable-next-line
+    
   }, [pagination.page, filters]);
+
+  //ws checkout
+  useEffect(() => {
+  if (!user) return;
+
+  const handleCheckin = (data) => {
+   
+    if (!isInDateRange(data, filters)) return;
+
+    setRecords((prev) => {
+    
+      const exists = prev.some((r) => r.id === data.id);
+      if (exists) return prev;
+
+      
+      if (pagination.page === 1) {
+        return [data, ...prev.slice(0, pagination.limit - 1)];
+      }
+
+      return prev;
+    });
+
+
+    setPagination((prev) => ({
+      ...prev,
+      total: prev.total + 1,
+    }));
+  };
+
+  wsService.on("ATTENDANCE_CHECKIN", handleCheckin);
+
+  return () => {
+    wsService.off("ATTENDANCE_CHECKIN", handleCheckin);
+  };
+}, [user, filters, pagination.page]);
+//ws checkout
+useEffect(() => {
+  if (!user) return;
+
+  const handleCheckout = (data) => {
+    // data = record sau khi checkout
+
+    setRecords((prev) =>
+      prev.map((r) => {
+        if (r.id !== data.id) return r;
+
+        return {
+          ...r,
+          checkout_time: data.checkout_time,
+          checkout_image: data.checkout_image,
+          work_status: data.work_status ?? r.work_status,
+          updated_at: data.updated_at,
+        };
+      })
+    );
+  };
+
+  wsService.on("ATTENDANCE_CHECKOUT", handleCheckout);
+
+  return () => {
+    wsService.off("ATTENDANCE_CHECKOUT", handleCheckout);
+  };
+}, [user]);
 
   const loadHistory = async () => {
     setLoading(true);

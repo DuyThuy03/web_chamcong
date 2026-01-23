@@ -115,3 +115,11 @@ export const canViewUserAttendance = (currentUser, targetUserId) => {
 
   return false;
 };
+
+export const isInDateRange = (record, filters) => {
+  const day = record.day?.split("T")[0];
+  return (
+    day >= filters.from_date &&
+    day <= filters.to_date
+  );
+};

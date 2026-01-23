@@ -12,6 +12,7 @@ import (
 	"attendance-system/internal/models"
 	"attendance-system/internal/repository"
 	"attendance-system/internal/utils"
+	"attendance-system/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,12 +20,14 @@ import (
 type LeaveHandler struct {
 	leaveRepo *repository.LeaveRequestRepository
 	userRepo  *repository.UserRepository
+	hub			 *ws.Hub
 }
 
-func NewLeaveHandler(leaveRepo *repository.LeaveRequestRepository, userRepo *repository.UserRepository) *LeaveHandler {
+func NewLeaveHandler(leaveRepo *repository.LeaveRequestRepository, userRepo *repository.UserRepository, hub *ws.Hub) *LeaveHandler {
 	return &LeaveHandler{
 		leaveRepo: leaveRepo,
 		userRepo:  userRepo,
+		hub:       hub,
 	}
 }
 
@@ -35,6 +38,54 @@ type CreateLeaveRequest struct {
 	Session             *string `json:"session,omitempty"`
 	ExpectedArrivalTime *string `json:"expected_arrival_time,omitempty"`
 	Reason              *string `json:"reason,omitempty"`
+}
+func MapLeaveRequestResponse(
+	l *models.LeaveRequest,
+	userName string,
+	approvedByName *string,
+) *models.LeaveRequestResponse {
+
+	var session, expected, reason *string
+	var approvedByID *int
+	var  approvedAt *time.Time
+	if l.Session.Valid {
+		session = &l.Session.String
+	}
+
+	if l.ExpectedArrivalTime.Valid {
+		expected = &l.ExpectedArrivalTime.String
+	}
+
+	if l.Reason.Valid {
+		reason = &l.Reason.String
+	}
+
+	if l.ApprovedByID.Valid {
+		id := int(l.ApprovedByID.Int64) 
+		approvedByID = &id
+	}
+
+if l.ApprovedAt.Valid {
+	approvedAt = &l.ApprovedAt.Time
+}
+
+
+	return &models.LeaveRequestResponse{
+		ID:                  l.ID,
+		UserID:              l.UserID,
+		UserName:            userName,
+		Type:                l.Type,
+		FromDate:            l.FromDate.Format(time.RFC3339),
+		ToDate:              l.ToDate.Format(time.RFC3339),
+		Session:             session,
+		ExpectedArrivalTime: expected,
+		Reason:              reason,
+		Status:              l.Status,
+		ApprovedByID:        approvedByID,
+		ApprovedByName:      approvedByName,
+		ApprovedAt:          approvedAt,
+		CreatedAt:           l.CreatedAt,
+	}
 }
 
 func (h *LeaveHandler) Create(c *gin.Context) {
@@ -50,8 +101,7 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 	validTypes := map[string]bool{
 		"NGHI_PHEP": true,
 		"DI_MUON":   true,
-		"VE_SOM":    true,
-		"KHAC":      true,
+		
 	}
 
 	if !validTypes[req.Type] {
@@ -90,7 +140,7 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		Type:     req.Type,
 		FromDate: fromDate,
 		ToDate:   toDate,
-		Status:   "CHO_DUYET", // ✅ KHỚP DB
+		Status:   "CHO_DUYET", 
 	}
 
 	if req.Session != nil {
@@ -120,8 +170,22 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create leave request")
 		return
 	}
+	userName := c.GetString("user_name")
 
-	utils.SuccessResponse(c, http.StatusCreated, leaveRequest)
+resp := MapLeaveRequestResponse(
+	leaveRequest,
+	userName,
+	nil, // chưa có người duyệt
+)
+
+// ===== 7. Emit WebSocket =====
+ws.Emit(
+	h.hub,
+	ws.EventCreateLeaveRequest,
+	resp,
+)
+
+	utils.SuccessResponse(c, http.StatusCreated, resp)
 }
 
 
@@ -261,8 +325,22 @@ func (h *LeaveHandler) Approve(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to approve leave request")
 		return
 	}
+	updatedRequest, err := h.leaveRepo.GetByID(id) // LeaveRequestResponse
+if err != nil || updatedRequest == nil {
+	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to load updated leave request")
+	return
+}
 
-	utils.SuccessResponse(c, http.StatusOK, nil)
+approverName := c.GetString("user_name")
+updatedRequest.ApprovedByName = &approverName
+
+ws.Emit(
+	h.hub,
+	ws.EventApproveLeaveRequest,
+	updatedRequest,
+)
+
+	utils.SuccessResponse(c, http.StatusOK, updatedRequest)
 }
 
 func (h *LeaveHandler) Reject(c *gin.Context) {
@@ -312,11 +390,26 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to reject leave request")
 		return
 	}
+	updatedRequest, err := h.leaveRepo.GetByID(id) // LeaveRequestResponse
+if err != nil || updatedRequest == nil {
+	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to load updated leave request")
+	return
+}
 
-	utils.SuccessResponse(c, http.StatusOK, nil)
+// approverName := c.GetString("user_name")
+// updatedRequest.ApprovedByName = &approverName
+
+ws.Emit(
+	h.hub,
+	ws.EventRejectLeaveRequest,
+	updatedRequest,
+)
+
+
+	utils.SuccessResponse(c, http.StatusOK, updatedRequest)
 }
 //hàm hủy yêu cầu nghỉ phép
-	func (h *LeaveHandler) Cancel(c *gin.Context) {
+func (h *LeaveHandler) Cancel(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
@@ -347,7 +440,22 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to cancel leave request")
 			return
 		}
-		utils.SuccessResponse(c, http.StatusOK, nil)
+		updatedRequest, err := h.leaveRepo.GetByID(id) // LeaveRequestResponse
+if err != nil || updatedRequest == nil {
+	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to load updated leave request")
+	return
+}
+
+// approverName := c.GetString("user_name")
+// updatedRequest.ApprovedByName = &approverName
+
+ws.Emit(
+	h.hub,
+	"LEAVE_CANCELED",
+	updatedRequest,
+)
+
+	utils.SuccessResponse(c, http.StatusOK, updatedRequest)
 	}
 //xóa yêu cầu nghỉ phép
 func (h *LeaveHandler) Delete(c *gin.Context) {

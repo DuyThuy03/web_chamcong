@@ -12,6 +12,7 @@ import (
 
 	"attendance-system/internal/models"
 	"attendance-system/internal/repository"
+	"attendance-system/internal/websocket"
 )
 
 type AttendanceService struct {
@@ -19,6 +20,7 @@ type AttendanceService struct {
     imageService    *ImageService
     locationService *LocationService
     baseURL         string
+	hub			 *ws.Hub
 }
 
 func NewAttendanceService(
@@ -26,12 +28,14 @@ func NewAttendanceService(
     imageService *ImageService,
     locationService *LocationService,
     baseURL string,
+	hub *ws.Hub,
 ) *AttendanceService {
     return &AttendanceService{
         repo:            repo,
         imageService:    imageService,
         locationService: locationService,
         baseURL:         baseURL,
+		hub:			 hub,
     }
 }
 
@@ -132,8 +136,19 @@ func (s *AttendanceService) CheckIn(
     if err != nil {
         return nil, err
     }
+	result, err := s.repo.GetByID(checkIO.ID)
+if err != nil {
+	return nil, err
+}
 
-    return s.repo.GetByID(checkIO.ID)
+
+ws.Emit(
+	s.hub,
+	ws.EventAttendanceCheckin,
+	result,
+)
+
+    return result, nil
 }
 //hàm checkout tương tự như checkin, chỉ khác là cập nhật các trường checkout
 func (s *AttendanceService) CheckOut(
@@ -188,8 +203,16 @@ func (s *AttendanceService) CheckOut(
 	if err != nil {
 		return nil, err
 	}
-
-	return s.repo.GetByID(existing.ID)
+ result , err := s.repo.GetByID(existing.ID)
+ if err != nil {
+	 return nil, err
+ }
+ ws.Emit(
+	s.hub,
+	ws.EventAttendanceCheckout,
+	result,
+)
+	return result, nil
 }
 //hàm Gethistory tương tự như GetByID nhưng lấy theo userID và khoảng thời gian
 func (s *AttendanceService) GetHistory(

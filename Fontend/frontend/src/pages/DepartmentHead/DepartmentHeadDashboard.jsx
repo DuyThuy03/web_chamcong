@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../service/api";
 import { formatDate, formatTime } from "../../until/helper";
+import { wsService } from "../../service/ws";
 
 const DepartmentHeadDashboard = () => {
   const { user } = useAuth();
@@ -17,10 +18,111 @@ const DepartmentHeadDashboard = () => {
   const [departmentAttendance, setDepartmentAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
 
- useEffect(() => {
+  useEffect(() => {
+    if (!user) return;
+    fetchDashboardData();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const handleCheckin = (data) => {
+      setDepartmentAttendance((prev) => [data, ...prev]);
+
+      setStats((prev) => ({
+        ...prev,
+        presentToday: prev.presentToday + 1,
+        lateToday:
+          data.work_status === "LATE" ? prev.lateToday + 1 : prev.lateToday,
+      }));
+    };
+
+    wsService.on("ATTENDANCE_CHECKIN", handleCheckin);
+
+    return () => {
+      wsService.off("ATTENDANCE_CHECKIN", handleCheckin);
+    };
+  }, [user]);
+
+  console.log("trạng thái", departmentAttendance);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const handleCheckout = (data) => {
+      setDepartmentAttendance((prev) =>
+        prev.map((item) =>
+          item.attendance_id === data.attendance_id
+            ? {
+                ...item,
+                checkout_time: data.checkout_time,
+              }
+            : item,
+        ),
+      );
+    };
+
+    wsService.on("ATTENDANCE_CHECKOUT", handleCheckout);
+
+    return () => {
+     wsService.off("ATTENDANCE_CHECKOUT", handleCheckout);
+    };
+  }, [user]);
+useEffect(() => {
   if (!user) return;
-  fetchDashboardData();
+
+  const handlerCreateLeave = (data) => {
+    // ✅ Chỉ nhận đơn chờ duyệt
+    if (data.status !== "CHO_DUYET") return;
+
+    setPendingLeaveRequests((prev) => {
+      const exists = prev.some((item) => item.id === data.id);
+      if (exists) return prev;
+
+      // ✅ Tăng badge
+      setStats((s) => ({
+        ...s,
+        pendingLeaves: s.pendingLeaves + 1,
+      }));
+
+      return [data, ...prev];
+    });
+  };
+
+  wsService.on("CREATE_LEAVE_REQUEST", handlerCreateLeave);
+
+  return () => {
+    wsService.off("CREATE_LEAVE_REQUEST", handlerCreateLeave);
+  };
 }, [user]);
+
+// useEffect(() => {
+//   if (!user) return;
+
+//   const handlerUpdateLeave = (data) => {
+//      console.log("WS RECEIVED LEAVE_CANCELED:", data);
+//     setLeaveRequests((prev) => {
+//       const index = prev.findIndex((item) => item.id === data.id);
+
+//       if (index !== -1) {
+//         const updated = [...prev];
+//         updated[index] = data;
+//         return updated;
+//       }
+
+//       return [data, ...prev];
+//     });
+//   };
+
+  
+//   wsService.on("LEAVE_CANCELED", handlerUpdateLeave);
+
+//   return () => {
+   
+//     wsService.off("LEAVE_CANCELED", handlerUpdateLeave);
+//   };
+// }, [user]);
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -53,7 +155,7 @@ const DepartmentHeadDashboard = () => {
             checkin_time: record.checkin_time,
             checkout_time: record.checkout_time,
             checkin_image: record.checkin_image,
-            is_late: record.work_status === "LATE",
+            work_status: record.work_status,
           }));
 
         setStats((prev) => ({
@@ -67,17 +169,15 @@ const DepartmentHeadDashboard = () => {
 
       // Fetch leave requests
       const leaveRes = await api.get("/leaves");
-      
+
       const responseData = leaveRes.data;
- 
-console.log("tầng 2", responseData)
-      if (responseData.success ) {
-       
+
+      console.log("tầng 2", responseData);
+      if (responseData.success) {
         const pending = responseData.data.requests.filter((l) => {
-          
           return l.status === "CHO_DUYET";
         });
-        
+
         setPendingLeaveRequests(pending.slice(0, 5));
         setStats((prev) => ({ ...prev, pendingLeaves: pending.length }));
       } else {
@@ -131,167 +231,162 @@ console.log("tầng 2", responseData)
     );
   }
 
-return (
-  <div className="p-4 sm:p-6 space-y-6 bg-gray-50 min-h-screen">
-    {/* Header */}
-    <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-          Dashboard Trưởng Phòng
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Xin chào, <span className="font-semibold">{user?.name || "Trưởng phòng"}</span>
-        </p>
-        <p className="text-xs text-gray-500">
-          Phòng ban: {user?.department_name || "N/A"}
-        </p>
-      </div>
-    </div>
-
-    {/* Statistics */}
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-      {[
-        {
-          label: "Tổng nhân viên",
-          value: stats.totalEmployees,
-          color: "blue",
-        },
-        {
-          label: "Có mặt",
-          value: stats.presentToday,
-          color: "green",
-        },
-        {
-          label: "Chưa có mặt",
-          value: stats.totalEmployees - stats.presentToday,
-          color: "gray",
-        },
-        {
-          label: "Đi muộn",
-          value: stats.lateToday,
-          color: "yellow",
-        },
-        {
-          label: "Đơn chờ duyệt",
-          value: stats.pendingLeaves,
-          color: "purple",
-        },
-      ].map((item, idx) => (
-        <div
-          key={idx}
-          className="bg-white rounded-xl shadow-sm hover:shadow-md transition p-4"
-        >
-          <p className="text-xs text-gray-500">{item.label}</p>
-          <p className={`text-2xl font-bold text-${item.color}-600 mt-1`}>
-            {item.value}
+  return (
+    <div className="p-4 sm:p-6 space-y-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+            Dashboard Trưởng Phòng
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Xin chào,{" "}
+            <span className="font-semibold">
+              {user?.name || "Trưởng phòng"}
+            </span>
+          </p>
+          <p className="text-xs text-gray-500">
+            Phòng ban: {user?.department_name || "N/A"}
           </p>
         </div>
-      ))}
-    </div>
+      </div>
 
-    {/* Main Content */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Leave Requests */}
-      <div className="bg-white rounded-xl shadow-sm p-5">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">
-          Đơn nghỉ chờ duyệt
-        </h2>
+      {/* Statistics */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {[
+          {
+            label: "Tổng nhân viên",
+            value: stats.totalEmployees,
+            color: "blue",
+          },
+          {
+            label: "Có mặt",
+            value: stats.presentToday,
+            color: "green",
+          },
+          {
+            label: "Chưa có mặt",
+            value: stats.totalEmployees - stats.presentToday,
+            color: "gray",
+          },
+          {
+            label: "Đi muộn",
+            value: stats.lateToday,
+            color: "yellow",
+          },
+          {
+            label: "Đơn chờ duyệt",
+            value: stats.pendingLeaves,
+            color: "purple",
+          },
+        ].map((item, idx) => (
+          <div
+            key={idx}
+            className="bg-white rounded-xl shadow-sm hover:shadow-md transition p-4"
+          >
+            <p className="text-xs text-gray-500">{item.label}</p>
+            <p className={`text-2xl font-bold text-${item.color}-600 mt-1`}>
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
 
-        {pendingLeaveRequests.length === 0 ? (
-          <p className="text-gray-500 text-center py-6">
-            Không có đơn nào
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {pendingLeaveRequests.map((leave) => (
-              <div
-                key={leave.id}
-                className="border rounded-lg p-4 hover:bg-gray-50 transition"
-              >
-                <div className="flex justify-between items-start gap-3">
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Leave Requests */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">
+            Đơn nghỉ chờ duyệt
+          </h2>
+
+          {pendingLeaveRequests.length === 0 ? (
+            <p className="text-gray-500 text-center py-6">Không có đơn nào</p>
+          ) : (
+            <div className="space-y-4">
+              {pendingLeaveRequests.map((leave) => (
+                <div
+                  key={leave.id}
+                  className="border rounded-lg p-4 hover:bg-gray-50 transition"
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {leave.user_name}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {formatDate(leave.from_date)} →{" "}
+                        {formatDate(leave.to_date)}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {leave.reason}
+                      </p>
+                    </div>
+
+                    <span className="px-3 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap">
+                      Chờ duyệt
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => handleApproveLeave(leave.id)}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm"
+                    >
+                      Duyệt
+                    </button>
+                    <button
+                      onClick={() => handleRejectLeave(leave.id)}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-md text-sm"
+                    >
+                      Từ chối
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Attendance */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">
+            Chấm công hôm nay
+          </h2>
+
+          {departmentAttendance.length === 0 ? (
+            <p className="text-gray-500 text-center py-6">Chưa có dữ liệu</p>
+          ) : (
+            <div className="divide-y">
+              {departmentAttendance.map((r, i) => (
+                <div key={i} className="py-3 flex justify-between items-start">
                   <div>
-                    <p className="font-semibold text-gray-800">
-                      {leave.user_name}
-                    </p>
+                    <p className="font-medium text-gray-800">{r.user_name}</p>
                     <p className="text-xs text-gray-600">
-                      {formatDate(leave.from_date)} → {formatDate(leave.to_date)}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {leave.reason}
+                      Vào:{" "}
+                      {r.checkin_time ? formatTime(r.checkin_time) : "Chưa"} |
+                      Ra:{" "}
+                      {r.checkout_time ? formatTime(r.checkout_time) : "Chưa"}
                     </p>
                   </div>
 
-                  <span className="px-3 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap">
-                    Chờ duyệt
+                  <span
+                    className={`px-3 py-1 text-xs rounded-full ${
+                      r.work_status === "LATE"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {r.work_status === "LATE" ? "Muộn" : "Đúng giờ"}
                   </span>
                 </div>
-
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => handleApproveLeave(leave.id)}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm"
-                  >
-                    Duyệt
-                  </button>
-                  <button
-                    onClick={() => handleRejectLeave(leave.id)}
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-md text-sm"
-                  >
-                    Từ chối
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Attendance */}
-      <div className="bg-white rounded-xl shadow-sm p-5">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">
-          Chấm công hôm nay
-        </h2>
-
-        {departmentAttendance.length === 0 ? (
-          <p className="text-gray-500 text-center py-6">
-            Chưa có dữ liệu
-          </p>
-        ) : (
-          <div className="divide-y">
-            {departmentAttendance.map((r, i) => (
-              <div
-                key={i}
-                className="py-3 flex justify-between items-start"
-              >
-                <div>
-                  <p className="font-medium text-gray-800">
-                    {r.user_name}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Vào: {r.checkin_time ? formatTime(r.checkin_time) : "Chưa"} | Ra:{" "}
-                    {r.checkout_time ? formatTime(r.checkout_time) : "Chưa"}
-                  </p>
-                </div>
-
-                <span
-                  className={`px-3 py-1 text-xs rounded-full ${
-                    r.is_late
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {r.is_late ? "Muộn" : "Đúng giờ"}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
-
-
+  );
 };
 
 export default DepartmentHeadDashboard;

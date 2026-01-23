@@ -1,14 +1,68 @@
 import React, { useEffect, useState } from "react";
 import api from "../../service/api";
-
+import { useAuth } from "../../contexts/AuthContext";
+import { wsService } from "../../service/ws";
 const LeavesHeadPage = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(false);
-
+const { user } = useAuth();
   useEffect(() => {
     fetchLeaveRequests();
   }, []);
+//ws nhận sự kiện nhân viên gửi đơn nghỉ phép
 
+useEffect(() => {
+  if (!user) return;
+
+  const handlerCreateLeave = (data) => {
+    // 1. Chỉ trưởng phòng mới nhận
+    // if (!user.is_leader) return;
+
+    // 2. Chỉ nhận đơn trong phòng ban của mình
+    // if (user.department_id !== data.department_id) return;
+
+    setLeaveRequests((prev) => {
+      // 3. Tránh bị add trùng khi reconnect WS
+      const exists = prev.some((item) => item.id === data.id);
+      if (exists) return prev;
+
+      return [data, ...prev];
+    });
+  };
+
+  wsService.on("CREATE_LEAVE_REQUEST", handlerCreateLeave);
+
+  return () => {
+    wsService.off("CREATE_LEAVE_REQUEST", handlerCreateLeave);
+  };
+}, [user]);
+useEffect(() => {
+  if (!user) return;
+
+  const handlerUpdateLeave = (data) => {
+     console.log("WS RECEIVED LEAVE_CANCELED:", data);
+    setLeaveRequests((prev) => {
+      const index = prev.findIndex((item) => item.id === data.id);
+
+      if (index !== -1) {
+        const updated = [...prev];
+        updated[index] = data;
+        return updated;
+      }
+
+      return [data, ...prev];
+    });
+  };
+
+  
+  wsService.on("LEAVE_CANCELED", handlerUpdateLeave);
+
+  return () => {
+   
+    wsService.off("LEAVE_CANCELED", handlerUpdateLeave);
+  };
+}, [user]);
+console.log("Yêu cầu đơn nghỉ phép", leaveRequests)
   const fetchLeaveRequests = async () => {
     try {
       setLoading(true);
@@ -170,7 +224,7 @@ const LeavesHeadPage = () => {
                         {formatDate(r.to_date)}
                       </td>
                       <td className="px-6 py-4 text-sm max-w-xs truncate">
-                        {r.reason}
+                        {r.reason ? r.reason : "-"}
                       </td>
                       <td className="px-6 py-4">
                         <span

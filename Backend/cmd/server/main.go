@@ -12,6 +12,7 @@ import (
 	"attendance-system/internal/middleware"
 	"attendance-system/internal/repository"
 	"attendance-system/internal/services"
+    "attendance-system/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,6 +29,10 @@ func main() {
     defer db.Close()
 
     log.Println("Database connection established")
+
+    //init ws
+    hub := ws.NewHub()
+	go hub.Run() 
 
     // Initialize repositories
     userRepo := repository.NewUserRepository(db.DB)
@@ -53,6 +58,7 @@ func main() {
         imageService,
         locationService,
         cfg.Server.BaseURL,
+        hub,
     )
 
     userService := services.NewUserService(userRepo)
@@ -63,7 +69,7 @@ func main() {
     attendanceHandler := handlers.NewAttendanceHandler(attendanceService)
     departmentHandler := handlers.NewDepartmentHandler(departmentRepo)
     shiftHandler := handlers.NewShiftHandler(shiftRepo)
-    leaveHandler := handlers.NewLeaveHandler(leaveRequestRepo, userRepo)
+    leaveHandler := handlers.NewLeaveHandler(leaveRequestRepo, userRepo, hub)
     managerHandler := handlers.NewManagerHandler(userRepo, attendanceRepo, userService)
     dashboardHandler := handlers.NewDashboardHandler(
         services.NewDashboardService(
@@ -73,7 +79,7 @@ func main() {
     )
 
     // Setup Gin router
-    router := setupRouter(cfg, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler, managerHandler, dashboardHandler)
+    router := setupRouter(cfg, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler, managerHandler, dashboardHandler, hub)
 
     // Start server
     addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -94,6 +100,7 @@ func setupRouter(
     leaveHandler *handlers.LeaveHandler,
     managerHandler *handlers.ManagerHandler,
     dashboardHandler *handlers.DashboardHandler,
+    hub *ws.Hub,
 ) *gin.Engine {
     
     // Set Gin mode
@@ -137,6 +144,7 @@ func setupRouter(
     // API v1 routes
     v1 := router.Group("/api/v1")
     {
+        v1.GET("/ws", ws.ServeWS(hub))
         // Health check
         v1.GET("/health", func(c *gin.Context) {
             c.JSON(http.StatusOK, gin.H{

@@ -31,33 +31,33 @@ func NewManagerHandler(userRepo *repository.UserRepository, attendanceRepo *repo
 // GetTodayAttendanceStatus - Xem trạng thái điểm danh hôm nay của tất cả thành viên
 // Trưởng phòng: xem thành viên trong phòng
 // Quản lý và Giám đốc: xem tất cả
-func (h *ManagerHandler) GetTodayAttendanceStatus(c *gin.Context) {
-	role, _ := middleware.GetUserRole(c)
-	deptID, _ := middleware.GetDepartmentID(c)
+		func (h *ManagerHandler) GetTodayAttendanceStatus(c *gin.Context) {
+			role, _ := middleware.GetUserRole(c)
+			deptID, _ := middleware.GetDepartmentID(c)
 
-	today := time.Now().Format("2006-01-02")
-	
-	var attendances []*models.CheckIOResponse
-	var err error
+			today := time.Now().Format("2006-01-02")
+			
+			var attendances []*models.CheckIOResponse
+			var err error
 
-	if role == "Trưởng phòng" {
-		// Trưởng phòng chỉ xem được thành viên trong phòng
-		attendances, err = h.attendanceRepo.GetTodayAttendanceByDepartment(deptID, today)
-	} else if role == "Quản lý" || role == "Giám đốc" {
-		// Quản lý và Giám đốc xem tất cả
-		attendances, err = h.attendanceRepo.GetTodayAttendanceAll(today)
-	} else {
-		utils.ErrorResponse(c, http.StatusForbidden, "Bạn không có quyền truy cập")
-		return
-	}
+			if role == "Trưởng phòng" {
+				// Trưởng phòng chỉ xem được thành viên trong phòng
+				attendances, err = h.attendanceRepo.GetTodayAttendanceByDepartment(deptID, today)
+			} else if role == "Quản lý" || role == "Giám đốc" {
+				// Quản lý và Giám đốc xem tất cả
+				attendances, err = h.attendanceRepo.GetTodayAttendanceAll(today)
+			} else {
+				utils.ErrorResponse(c, http.StatusForbidden, "Bạn không có quyền truy cập")
+				return
+			}
 
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi lấy dữ liệu điểm danh: "+err.Error())
-		return
-	}
+			if err != nil {
+				utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi khi lấy dữ liệu điểm danh: "+err.Error())
+				return
+			}
 
-	utils.SuccessResponse(c, http.StatusOK, attendances)
-}
+			utils.SuccessResponse(c, http.StatusOK, attendances)
+		}
 
 // GetMemberAttendanceHistory - Xem lịch sử chấm công của một thành viên
 // func (h *ManagerHandler) GetMemberAttendanceHistory(c *gin.Context) {

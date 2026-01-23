@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../service/api";
+import { wsService } from "../../service/ws";
 
 const LeaveRequestPage = () => {
   const { user } = useAuth();
@@ -17,6 +18,33 @@ const LeaveRequestPage = () => {
   useEffect(() => {
     fetchLeaveRequests();
   }, []);
+ useEffect(() => {
+  if (!user) return;
+
+  const handlerUpdateLeave = (data) => {
+    setLeaveRequests((prev) => {
+      const index = prev.findIndex((item) => item.id === data.id);
+
+      if (index !== -1) {
+        const updated = [...prev];
+        updated[index] = data;
+        return updated;
+      }
+
+      return [data, ...prev];
+    });
+  };
+
+  wsService.on("LEAVE_APPROVED", handlerUpdateLeave);
+  wsService.on("LEAVE_REJECTED", handlerUpdateLeave);
+
+  return () => {
+    wsService.off("LEAVE_APPROVED", handlerUpdateLeave);
+    wsService.off("LEAVE_REJECTED", handlerUpdateLeave);
+  };
+}, [user]);
+
+
 
   const fetchLeaveRequests = async () => {
     try {
@@ -352,7 +380,7 @@ const LeaveRequestPage = () => {
                             Hủy
                           </button>
                         )}
-                        {r.status === "DA_HUY" && r.status==="DA_DUYET"(
+                        {(r.status === "DA_HUY" || r.status==="DA_DUYET") && (
                           <button
                             onClick={() => handleDelete(r.id)}
                             className="text-red-600 hover:text-red-800 font-medium"
