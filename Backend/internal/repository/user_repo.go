@@ -51,7 +51,7 @@ func (r *UserRepository) GetUserByID(id int) (*models.User, error) {
 }
 
 // GetByID returns UserResponse for API responses
-func (r *UserRepository) GetByID(id int) (*models.UserResponse, error) {
+func (r *UserRepository)GetByID(id int) (*models.UserResponse, error) {
     user := &models.UserResponse{}
     var dob, address, gender, phone sql.NullString
     var deptID sql.NullInt64

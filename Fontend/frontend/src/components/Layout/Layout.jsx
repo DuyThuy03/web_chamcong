@@ -18,6 +18,7 @@ import {
   Settings,
   IdCard ,
 } from "lucide-react";
+import ThemeToggle from "../ThemeToggle";
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -41,7 +42,7 @@ const Layout = ({ children }) => {
       {
         path: "/attendance",
         icon: Clock,
-        label: "CheckIN - CheckOUT",
+        label: "Check_in - Check_out",
         roles: ["Nhân viên", "Trưởng phòng", "Quản lý", "Giám đốc"],
       },
       {
@@ -123,33 +124,35 @@ const Layout = ({ children }) => {
   }, [user?.role]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-primary)] transition-colors duration-300">
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] sticky top-0 z-40 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-[var(--text-primary)]">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="mr-4 md:hidden"
+                className="mr-4 md:hidden text-[var(--text-primary)]"
               >
                 {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
-              <h1 className="text-xl font-bold text-gray-800">
-                Hệ thống chấm công
+              <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
+                HỆ THỐNG CHẤM CÔNG
               </h1>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
+              <ThemeToggle />
+              
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-[var(--text-primary)]">
                   {user?.name}
                 </p>
-                <p className="text-xs text-gray-500">{user?.role}</p>
+                <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">{user?.role}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                className="flex items-center gap-2 text-red-500 hover:text-red-600 transition-colors"
               >
                 <LogOut size={20} />
                 <span className="hidden sm:inline">Đăng xuất</span>
@@ -166,8 +169,8 @@ const Layout = ({ children }) => {
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
             md:translate-x-0
             fixed md:static inset-y-0 left-0 z-30
-            w-64 bg-white shadow-lg
-            transition-transform duration-300 ease-in-out
+            w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border-color)]
+            transition-all duration-300 ease-in-out
             mt-16 md:mt-0
           `}
         >
@@ -182,16 +185,16 @@ const Layout = ({ children }) => {
                   to={item.path}
                   onClick={() => setSidebarOpen(false)}
                   className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg transition
+                    flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200
                     ${
                       isActive
-                        ? "bg-blue-50 text-blue-600 font-medium"
-                        : "text-gray-700 hover:bg-gray-50"
+                        ? "bg-[var(--bg-primary)] text-[var(--accent-color)] border-l-4 border-[var(--accent-color)] shadow-[0_0_10px_rgba(0,243,255,0.1)]"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:text-[var(--text-primary)]"
                     }
                   `}
                 >
                   <Icon size={20} />
-                  <span>{item.label}</span>
+                  <span className="font-medium">{item.label}</span>
                 </Link>
               );
             })}
@@ -199,15 +202,15 @@ const Layout = ({ children }) => {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 p-6 overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
+          <div className="max-w-7xl mx-auto w-full">{children}</div>
         </main>
       </div>
 
       {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+          className="fixed inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}

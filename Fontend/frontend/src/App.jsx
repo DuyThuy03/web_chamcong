@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 // Đường dẫn này phải trỏ đến đúng file AuthContext.jsx bạn vừa gửi
-import { useAuth } from "../../frontend/src/contexts/AuthContext";
+import { useAuth } from "./contexts/AuthContext";
 
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/employee/DashboardPage";
@@ -23,6 +23,7 @@ import LeavesPage from "./pages/manager/leaves_manager";
 import Layout from "./components/Layout/Layout";
 import PrivateRoute from "./PrivateRouter/PrivateRouter";
 import { wsService } from "./service/ws";
+
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {

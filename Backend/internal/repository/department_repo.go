@@ -16,8 +16,8 @@ func NewDepartmentRepository(db *sql.DB) *DepartmentRepository {
 
 func (r *DepartmentRepository) GetAll() ([]models.Department, error) {
 	query := `
-		SELECT d.id, d.name, d.leader_id, u.full_name as leader_name, d.created_at, d.updated_at
-		FROM departments d
+		SELECT d.id, d.name, d.leader_id, d.created_at, d.updated_at
+		FROM department d
 		LEFT JOIN users u ON d.leader_id = u.id
 		ORDER BY d.name
 	`
@@ -35,7 +35,7 @@ func (r *DepartmentRepository) GetAll() ([]models.Department, error) {
 			&dept.ID,
 			&dept.Name,
 			&dept.LeaderID,
-			&dept.LeaderName,
+			
 			&dept.CreatedAt,
 			&dept.UpdatedAt,
 		)
@@ -51,8 +51,8 @@ func (r *DepartmentRepository) GetAll() ([]models.Department, error) {
 
 func (r *DepartmentRepository) GetByID(id int) (*models.Department, error) {
 	query := `
-		SELECT d.id, d.name, d.leader_id, u.full_name as leader_name, d.created_at, d.updated_at
-		FROM departments d
+		SELECT d.id, d.name, d.leader_id, d.created_at, d.updated_at
+		FROM department d
 		LEFT JOIN users u ON d.leader_id = u.id
 		WHERE d.id = $1
 	`
@@ -62,7 +62,7 @@ func (r *DepartmentRepository) GetByID(id int) (*models.Department, error) {
 		&dept.ID,
 		&dept.Name,
 		&dept.LeaderID,
-		&dept.LeaderName,
+	
 		&dept.CreatedAt,
 		&dept.UpdatedAt,
 	)

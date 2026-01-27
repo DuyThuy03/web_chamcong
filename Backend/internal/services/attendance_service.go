@@ -316,6 +316,7 @@ func (s *AttendanceService) determineWorkStatus(checkTime time.Time, shiftID int
     if hour > 8 || (hour == 8 && minute > 15) {
         return "LATE"
     }
+	
     return "ON_TIME"
 }
 

@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS LeaveRequest (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('NGHI_PHEP', 'DI_MUON', 'VE_SOM')),
+    type TEXT NOT NULL CHECK (type IN ('NGHI_PHEP', 'DI_MUON')),
     from_date DATE NOT NULL,
     to_date DATE NOT NULL,
     session TEXT CHECK (session IN ('SANG', 'CHIEU', 'CA_NGAY')),

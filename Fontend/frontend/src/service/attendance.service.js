@@ -38,11 +38,11 @@ export const attendanceService = {
     return response.data;
   },
 
-  // async getTodayAttendance() {
-  //   const response = await api.get("/attendance/today");
-  //   console.log("TODAY ATTENDANCE RESPONSE:", response.data);
-  //   return response.data;
-  // },
+  async getTodayAttendance() {
+    const response = await api.get("/attendance/today");
+    console.log("TODAY ATTENDANCE RESPONSE:", response.data);
+    return response.data;
+  },
   
 
   async getHistory(params = {}) {

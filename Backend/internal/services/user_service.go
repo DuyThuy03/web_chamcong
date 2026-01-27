@@ -44,30 +44,34 @@ func (s *UserService) CreateUser(
 
 	// 3. Tạo user cơ bản
 	user := &models.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: hashedPassword,
-		DepartmentID: sql.NullInt64{Int64: int64(auth.DepartmentID), Valid: true},
-		Role:     "Nhân viên",
-		Status:   "Hoạt động",
-	}
+    Name:     req.Name,
+    Email:    req.Email,
+    Password: hashedPassword,
+    Role:     "Nhân viên",
+    Status:   "Hoạt động",
+}
 
-	// 4. GÁN DEPARTMENT THEO ROLE NGƯỜI TẠO
-	switch auth.Role {
+// 4. GÁN DEPARTMENT THEO ROLE
+switch auth.Role {
 
-	case "Trưởng phòng":
-		// ÉP department = department của trưởng phòng
-		req.DepartmentID = &auth.DepartmentID
+case "Trưởng phòng":
+    user.DepartmentID = sql.NullInt64{
+        Int64: int64(auth.DepartmentID),
+        Valid: true,
+    }
 
-	case "Quản lý", "Giám đốc":
-		if req.DepartmentID == nil {
-			return nil, fmt.Errorf("phải chọn phòng ban")
-		}
+case "Quản lý", "Giám đốc":
+    if req.DepartmentID == nil {
+        return nil, fmt.Errorf("phải chọn phòng ban")
+    }
+    user.DepartmentID = sql.NullInt64{
+        Int64: int64(*req.DepartmentID),
+        Valid: true,
+    }
 
-	default:
-		return nil, fmt.Errorf("không có quyền tạo thành viên")
-	}
-
+default:
+    return nil, fmt.Errorf("không có quyền tạo thành viên")
+}
 	// 5. Optional fields
 	if req.DateOfBirth != nil {
 		if parsedDate, err := time.Parse("2006-01-02", *req.DateOfBirth); err == nil {

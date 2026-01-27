@@ -1,15 +1,82 @@
 @import "tailwindcss";
 
+@theme {
+  --color-navy-900: #0a192f;
+  --color-navy-800: #112240;
+  --color-navy-700: #1d3454;
+  --color-neon-blue: #00f3ff;
+  --color-neon-green: #0afff0;
+}
+
+:root {
+  /* Dark Mode - Industrial Navy + Neon (Default) */
+  --bg-primary: #0a192f; /* Deep Navy */
+  --bg-secondary: #112240; /* Lighter Navy for Cards */
+  --text-primary: #e6f1ff; /* White/Blue tint */
+  --text-secondary: #8892b0; /* Muted Blue/Gray */
+  --accent-color: #64ffda; /* Neon Teal/Green (adjusted for readability) or keep #00f3ff */
+  --accent-hover: #00c7d1;
+  --border-color: #233554; /* Dark Navy Border */
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --sidebar-bg: #112240;
+}
+
+.light {
+  /* Light Mode Defaults */
+  --bg-primary: #f8fafc; /* Slate 50 */
+  --bg-secondary: #ffffff;
+  --text-primary: #0f172a; /* Slate 900 */
+  --text-secondary: #475569; /* Slate 600 */
+  --accent-color: #2563eb; /* Blue 600 */
+  --accent-hover: #1d4ed8;
+  --border-color: #e2e8f0; /* Slate 200 */
+  --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --sidebar-bg: #ffffff;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Scrollbar Styling for Industrial Look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary); 
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-secondary); 
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color); 
+}
+
+/* Utility to apply the theme variables using Tailwind classes if needed
+   But mostly we will use these variables directly or map them to Tailwind config if not using v4 features fully yet.
+   In Tailwind v4, we can refer to CSS variables directly in arbitrary values e.g. bg-[--bg-primary] 
+   or we can extend the theme.
+*/
+
+.scada-panel {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+}
+
+.scada-text-accent {
+  color: var(--accent-color);
 }

@@ -15,9 +15,11 @@ import {
   Phone,
   MapPin,
   User,
+  Shield,
+  RefreshCw,
 } from "lucide-react";
-import api from "../../service/api"; // Đảm bảo đường dẫn đúng
-import { useAuth } from "../../contexts/AuthContext"; // Đảm bảo đường dẫn đúng
+import api from "../../service/api";
+import { useAuth } from "../../contexts/AuthContext";
 import { formatDate } from "../../until/helper";
 
 const MemberListPage = () => {
@@ -63,7 +65,6 @@ const MemberListPage = () => {
   const fetchMembers = async () => {
     setLoading(true);
     try {
-      // Giả lập API call nếu chưa có backend thực tế, thay thế bằng api.get của bạn
       const responseALL = await api.get("/manager/members");
 
       if (responseALL.data.success) {
@@ -81,12 +82,11 @@ const MemberListPage = () => {
         setPagination({
           ...responseALL.data.pagination,
           total: filteredMembers.length,
-          total_pages: Math.ceil(filteredMembers.length / 20) || 1, // Fallback nếu API không trả về total_pages
+          total_pages: Math.ceil(filteredMembers.length / 20) || 1,
         });
       }
     } catch (error) {
       console.error("Lỗi khi tải danh sách:", error);
-      // alert("Không thể tải danh sách thành viên");
     } finally {
       setLoading(false);
     }
@@ -129,7 +129,7 @@ const MemberListPage = () => {
         address: member.address || "",
         gender: member.gender || "",
         date_of_birth: member.date_of_birth || "",
-        password: "", // Không điền password khi edit
+        password: "",
       });
       setIsEditing(true);
     } else {
@@ -152,7 +152,6 @@ const MemberListPage = () => {
 
   const closeForm = () => {
     setIsFormOpen(false);
-    // Reset form logic handled in openForm usually, but good to clean up
   };
 
   const closeDetailModal = () => {
@@ -172,14 +171,13 @@ const MemberListPage = () => {
     try {
       const payload = { ...formData };
 
-      // Xử lý logic password
       if (!isEditing && !payload.password) {
         alert("Vui lòng nhập mật khẩu cho thành viên mới");
         setLoading(false);
         return;
       }
       if (isEditing && !payload.password) {
-        delete payload.password; // Không gửi field password nếu rỗng khi edit
+        delete payload.password;
       }
 
       if (isEditing) {
@@ -205,12 +203,13 @@ const MemberListPage = () => {
     const isManager = role === "Trưởng phòng";
     return (
       <span
-        className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border ${
           isManager
-            ? "bg-purple-100 text-purple-700 border-purple-200"
-            : "bg-blue-100 text-blue-700 border-blue-200"
+            ? "bg-purple-50 text-purple-700 border-purple-200"
+            : "bg-blue-50 text-blue-700 border-blue-200"
         }`}
       >
+        {isManager && <Shield size={12} />}
         {role || "Nhân viên"}
       </span>
     );
@@ -220,13 +219,15 @@ const MemberListPage = () => {
     const isActive = status === "Hoạt động";
     return (
       <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${
+          isActive
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-slate-100 text-slate-600"
         }`}
       >
         <span
-          className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-            isActive ? "bg-green-500" : "bg-gray-400"
+          className={`w-1.5 h-1.5 rounded-full ${
+            isActive ? "bg-emerald-500" : "bg-slate-400"
           }`}
         ></span>
         {status}
@@ -235,293 +236,319 @@ const MemberListPage = () => {
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 bg-gray-50 min-h-screen">
-      {/* 1. Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <Users className="text-blue-600" /> Quản lý thành viên
-          </h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-1">
-            Danh sách nhân sự thuộc quyền quản lý
-          </p>
-        </div>
-
-        <button
-          onClick={() => openForm()}
-          className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg shadow-sm font-medium transition-colors cursor-pointer"
-        >
-          <UserPlus size={18} />
-          Thêm thành viên
-        </button>
-      </div>
-
-      {/* 2. Search */}
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-        <div className="relative w-full sm:max-w-md">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="Tìm kiếm theo tên, email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-          />
-        </div>
-      </div>
-
-      {/* 3. Table / Mobile List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-        {loading && members.length === 0 ? (
-          <div className="p-10 text-center text-gray-500">
-            Đang tải dữ liệu...
-          </div>
-        ) : members.length === 0 ? (
-          <div className="p-10 text-center text-gray-500">
-            Không tìm thấy thành viên nào phù hợp.
-          </div>
-        ) : (
-          <>
-            {/* DESKTOP TABLE */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full text-left whitespace-nowrap">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Thành viên
-                    </th>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Phòng ban
-                    </th>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Vai trò
-                    </th>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Trạng thái
-                    </th>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
-                      Hành động
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-gray-200">
-                  {members.map((m) => (
-                    <tr
-                      key={m.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-sm">
-                            {m.name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {m.name}
-                            </p>
-                            <p className="font-medium text-gray-900">
-                              {m.gender}
-                            </p>
-                            
-                            <p className="text-sm text-gray-500 flex items-center gap-1">
-                              <Mail size={12} /> {m.email}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {m.department_name}
-                      </td>
-                      <td className="px-6 py-4">{getRoleBadge(m.role)}</td>
-                      <td className="px-6 py-4">{getStatusBadge(m.status)}</td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleViewDetail(m)}
-                            className="p-2 rounded-full text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                            title="Xem chi tiết"
-                          >
-                            <Eye size={18} />
-                          </button>
-                          <button
-                            onClick={() => openForm(m)}
-                            className="p-2 rounded-full text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
-                            title="Chỉnh sửa"
-                          >
-                            <Edit size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(m.id)}
-                            className="p-2 rounded-full text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                            title="Xóa"
-                            disabled={m.role === "Trưởng phòng"}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* MOBILE CARD LIST */}
-            <div className="lg:hidden divide-y divide-gray-200">
-              {members.map((m) => (
-                <div key={m.id} className="p-4 space-y-3 bg-white">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">
-                      {m.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{m.name}</p>
-                      <p className="text-xs text-gray-500">{m.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="font-medium">Phòng:</span>{" "}
-                      {m.department_name}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getRoleBadge(m.role)}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2">
-                    {getStatusBadge(m.status)}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleViewDetail(m)}
-                        className="p-2 bg-blue-50 text-blue-600 rounded-lg cursor-pointer"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => openForm(m)}
-                        className="p-2 bg-amber-50 text-amber-600 rounded-lg cursor-pointer"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(m.id)}
-                        className="p-2 bg-red-50 text-red-600 rounded-lg cursor-pointer"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            <div className="bg-gray-50 px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3 justify-between items-center">
-              <p className="text-sm text-gray-600">
-                Trang <span className="font-medium">{pagination.page}</span> /{" "}
-                <span className="font-medium">{pagination.total_pages}</span>
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-10 transition-colors duration-200">
+      {/* Header */}
+      <div className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 md:px-8 py-6 transition-colors duration-200">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+                <Users className="text-blue-600" size={32} />
+                Quản lý thành viên
+              </h1>
+              <p className="text-sm sm:text-base text-[var(--text-secondary)] mt-2">
+                Danh sách nhân sự thuộc quyền quản lý
               </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className={`flex items-center px-3 py-1.5 rounded border text-sm font-medium ${
-                    pagination.page === 1
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-white text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  }`}
-                >
-                  <ChevronLeft size={16} className="mr-1" /> Trước
-                </button>
-                <button
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={pagination.page === pagination.total_pages}
-                  className={`flex items-center px-3 py-1.5 rounded border text-sm font-medium ${
-                    pagination.page === pagination.total_pages
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-white text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  }`}
-                >
-                  Sau <ChevronRight size={16} className="ml-1" />
-                </button>
-              </div>
             </div>
-          </>
-        )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={fetchMembers}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-primary)] hover:brightness-95 text-[var(--text-primary)] rounded-xl font-medium transition-all"
+              >
+                <RefreshCw size={18} />
+                <span className="hidden sm:inline">Làm mới</span>
+              </button>
+              <button
+                onClick={() => openForm()}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl shadow-sm font-medium transition-all hover:shadow-md"
+              >
+                <UserPlus size={18} />
+                Thêm thành viên
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
+        {/* Search */}
+        <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-sm border border-[var(--border-color)] p-4 transition-colors duration-200">
+          <div className="relative w-full sm:max-w-md">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
+            />
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo tên, email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[var(--bg-primary)] pl-10 pr-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Table / Mobile List */}
+        <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-sm border border-[var(--border-color)] overflow-hidden transition-colors duration-200">
+          {loading && members.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-10 h-10 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-[var(--text-secondary)] font-medium">Đang tải dữ liệu...</p>
+            </div>
+          ) : members.length === 0 ? (
+            <div className="p-12 text-center">
+              <Users size={48} className="mx-auto text-[var(--text-secondary)] mb-3 opacity-50" />
+              <p className="text-[var(--text-secondary)] font-medium">
+                Không tìm thấy thành viên nào phù hợp
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* DESKTOP TABLE */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-[var(--bg-primary)] border-b border-[var(--border-color)]">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Thành viên
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Phòng ban
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Vai trò
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Trạng thái
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider text-right">
+                        Hành động
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-[var(--border-color)]">
+                    {members.map((m) => (
+                      <tr
+                        key={m.id}
+                        className="hover:bg-[var(--bg-primary)] transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-sm">
+                              {m.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-[var(--text-primary)]">{m.name}</p>
+                              {m.gender && (
+                                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                                  {m.gender}
+                                </p>
+                              )}
+                              <p className="text-sm text-[var(--text-secondary)] flex items-center gap-1 mt-0.5">
+                                <Mail size={12} /> {m.email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">
+                          <div className="flex items-center gap-2">
+                            <Building2 size={14} className="text-[var(--text-secondary)]" />
+                            {m.department_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">{getRoleBadge(m.role)}</td>
+                        <td className="px-6 py-4">{getStatusBadge(m.status)}</td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleViewDetail(m)}
+                              className="p-2 rounded-xl text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Xem chi tiết"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button
+                              onClick={() => openForm(m)}
+                              className="p-2 rounded-xl text-amber-600 hover:bg-amber-50 transition-colors"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(m.id)}
+                              className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Xóa"
+                              disabled={m.role === "Trưởng phòng"}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MOBILE CARD LIST */}
+              <div className="lg:hidden divide-y divide-[var(--border-color)]">
+                {members.map((m) => (
+                  <div key={m.id} className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
+                        {m.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[var(--text-primary)] truncate">{m.name}</p>
+                        <p className="text-xs text-[var(--text-secondary)] truncate">{m.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="bg-[var(--bg-primary)] p-2 rounded-lg">
+                        <span className="text-xs text-[var(--text-secondary)]">Phòng ban</span>
+                        <p className="font-medium text-[var(--text-primary)] text-xs mt-0.5 truncate">
+                          {m.department_name}
+                        </p>
+                      </div>
+                      <div className="bg-[var(--bg-primary)] p-2 rounded-lg">
+                        <span className="text-xs text-[var(--text-secondary)]">Vai trò</span>
+                        <div className="mt-1">{getRoleBadge(m.role)}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                      {getStatusBadge(m.status)}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewDetail(m)}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => openForm(m)}
+                          className="p-2 bg-amber-50 text-amber-600 rounded-lg"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(m.id)}
+                          className="p-2 bg-rose-50 text-rose-600 rounded-lg disabled:opacity-30"
+                          disabled={m.role === "Trưởng phòng"}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination */}
+              <div className="bg-[var(--bg-primary)] px-6 py-4 border-t border-[var(--border-color)] flex flex-col sm:flex-row gap-3 justify-between items-center">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Trang <span className="font-bold text-[var(--text-primary)]">{pagination.page}</span> /{" "}
+                  <span className="font-bold text-[var(--text-primary)]">{pagination.total_pages}</span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                    className={`flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      pagination.page === 1
+                        ? "bg-[var(--bg-primary)] text-[var(--text-secondary)] opacity-50 cursor-not-allowed"
+                        : "bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-primary)] border-[var(--border-color)]"
+                    }`}
+                  >
+                    <ChevronLeft size={16} className="mr-1" /> Trước
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page === pagination.total_pages}
+                    className={`flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      pagination.page === pagination.total_pages
+                        ? "bg-[var(--bg-primary)] text-[var(--text-secondary)] opacity-50 cursor-not-allowed"
+                        : "bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-primary)] border-[var(--border-color)]"
+                    }`}
+                  >
+                    Sau <ChevronRight size={16} className="ml-1" />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* --- MODAL 1: DETAIL VIEW --- */}
       {isDetailOpen && selectedMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-              <h3 className="text-lg font-semibold text-gray-800">
+          <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-primary)]">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">
                 Thông tin thành viên
               </h3>
               <button
                 onClick={closeDetailModal}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-600">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg">
                   {selectedMember.name?.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">
+                  <h2 className="text-2xl font-bold text-[var(--text-primary)]">
                     {selectedMember.name}
                   </h2>
-                  <p className="text-gray-500">
+                  <p className="text-[var(--text-secondary)] mt-1">
                     {selectedMember.role || "Nhân viên"}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Mail className="text-blue-500" size={20} />
-                  <div className="overflow-hidden">
-                    <p className="text-xs text-gray-500">Email</p>
+                <div className="flex items-start gap-3 p-4 bg-[var(--bg-primary)] rounded-xl border border-[var(--border-color)]">
+                  <Mail className="text-blue-500 mt-0.5" size={20} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[var(--text-secondary)] font-medium">Email</p>
                     <p
-                      className="text-sm font-medium truncate"
+                      className="text-sm font-medium text-[var(--text-primary)] truncate mt-1"
                       title={selectedMember.email}
                     >
                       {selectedMember.email}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Phone className="text-green-500" size={20} />
+                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <Phone className="text-emerald-500 mt-0.5" size={20} />
                   <div>
-                    <p className="text-xs text-gray-500">Điện thoại</p>
-                    <p className="text-sm font-medium">
+                    <p className="text-xs text-slate-500 font-medium">Điện thoại</p>
+                    <p className="text-sm font-medium text-slate-800 mt-1">
                       {selectedMember.phone_number || "---"}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Building2 className="text-purple-500" size={20} />
+                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <Building2 className="text-purple-500 mt-0.5" size={20} />
                   <div>
-                    <p className="text-xs text-gray-500">Phòng ban</p>
-                    <p className="text-sm font-medium">
+                    <p className="text-xs text-slate-500 font-medium">Phòng ban</p>
+                    <p className="text-sm font-medium text-slate-800 mt-1">
                       {selectedMember.department_name}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Calendar className="text-orange-500" size={20} />
+                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <Calendar className="text-orange-500 mt-0.5" size={20} />
                   <div>
-                    <p className="text-xs text-gray-500">Ngày sinh</p>
-                    <p className="text-sm font-medium">
+                    <p className="text-xs text-slate-500 font-medium">Ngày sinh</p>
+                    <p className="text-sm font-medium text-slate-800 mt-1">
                       {selectedMember.date_of_birth
                         ? formatDate(selectedMember.date_of_birth)
                         : "---"}
@@ -530,20 +557,20 @@ const MemberListPage = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                <MapPin className="text-red-500 mt-0.5" size={20} />
-                <div>
-                  <p className="text-xs text-gray-500">Địa chỉ</p>
-                  <p className="text-sm font-medium">
+              <div className="flex items-start gap-3 p-4 bg-[var(--bg-primary)] rounded-xl border border-[var(--border-color)]">
+                <MapPin className="text-rose-500 mt-0.5" size={20} />
+                <div className="flex-1">
+                  <p className="text-xs text-[var(--text-secondary)] font-medium">Địa chỉ</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)] mt-1">
                     {selectedMember.address || "Chưa cập nhật"}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 px-6 py-4 flex justify-end">
+            <div className="bg-[var(--bg-primary)] px-6 py-4 flex justify-end border-t border-[var(--border-color)]">
               <button
                 onClick={closeDetailModal}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium cursor-pointer"
+                className="px-6 py-2.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] hover:bg-[var(--bg-primary)] font-medium transition-all"
               >
                 Đóng
               </button>
@@ -555,32 +582,32 @@ const MemberListPage = () => {
       {/* --- MODAL 2: ADD/EDIT FORM --- */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+          <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-y-auto">
             <form onSubmit={handleFormSubmit}>
-              {/* ===== HEADER ===== */}
-              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex justify-between items-center bg-gray-50 sticky top-0 z-10">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-primary)] sticky top-0 z-10">
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">
                   {isEditing ? "Chỉnh sửa thành viên" : "Thêm thành viên mới"}
                 </h3>
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                 >
                   <X size={20} />
                 </button>
               </div>
 
-              {/* ===== BODY ===== */}
-              <div className="p-4 sm:p-6 flex flex-col gap-3 sm:gap-4">
+              {/* Body */}
+              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Full Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Họ và tên
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                    Họ và tên <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <User
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
                       size={18}
                     />
                     <input
@@ -590,19 +617,19 @@ const MemberListPage = () => {
                       value={formData.name}
                       onChange={handleFormChange}
                       placeholder="Nguyễn Văn A"
-                      className="w-full pl-9 sm:pl-10 pr-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none transition-all text-base sm:text-sm appearance-none"
                     />
                   </div>
                 </div>
 
                 {/* Email */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                    Email <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
                       size={18}
                     />
                     <input
@@ -612,17 +639,18 @@ const MemberListPage = () => {
                       value={formData.email}
                       onChange={handleFormChange}
                       placeholder="example@company.com"
-                      className="w-full pl-9 sm:pl-10 pr-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none transition-all text-base sm:text-sm appearance-none"
                     />
                   </div>
                 </div>
 
                 {/* Password */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     {isEditing
                       ? "Mật khẩu mới (Để trống nếu không đổi)"
                       : "Mật khẩu"}
+                    {!isEditing && <span className="text-rose-500"> *</span>}
                   </label>
                   <input
                     type="password"
@@ -630,13 +658,13 @@ const MemberListPage = () => {
                     value={formData.password}
                     onChange={handleFormChange}
                     placeholder="••••••"
-                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none transition-all text-base sm:text-sm appearance-none"
                   />
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     Số điện thoại
                   </label>
                   <input
@@ -645,13 +673,13 @@ const MemberListPage = () => {
                     value={formData.phone_number}
                     onChange={handleFormChange}
                     placeholder="0912345678"
-                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none transition-all text-base sm:text-sm appearance-none"
                   />
                 </div>
 
                 {/* Date of Birth */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     Ngày sinh
                   </label>
                   <input
@@ -659,20 +687,20 @@ const MemberListPage = () => {
                     name="date_of_birth"
                     value={formData.date_of_birth}
                     onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none transition-all text-base sm:text-sm appearance-none"
                   />
                 </div>
 
                 {/* Gender */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     Giới tính
                   </label>
                   <select
                     name="gender"
                     value={formData.gender}
                     onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none transition-all text-base sm:text-sm appearance-none"
                   >
                     <option value="">-- Chọn giới tính --</option>
                     <option value="Nam">Nam</option>
@@ -683,14 +711,14 @@ const MemberListPage = () => {
 
                 {/* Status */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     Trạng thái
                   </label>
                   <select
                     name="status"
                     value={formData.status}
                     onChange={handleFormChange}
-                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none transition-all text-base sm:text-sm appearance-none"
                   >
                     <option value="Hoạt động">Hoạt động</option>
                     <option value="Không hoạt động">Không hoạt động</option>
@@ -698,34 +726,34 @@ const MemberListPage = () => {
                 </div>
 
                 {/* Address */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     Địa chỉ
                   </label>
                   <textarea
                     name="address"
-                    rows={2}
+                    rows={3}
                     value={formData.address}
                     onChange={handleFormChange}
                     placeholder="Nhập địa chỉ..."
-                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] outline-none resize-none transition-all text-base sm:text-sm appearance-none"
                   />
                 </div>
               </div>
 
-              {/* ===== FOOTER ===== */}
-              <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 sticky bottom-0 z-10 border-t">
+              {/* Footer */}
+              <div className="bg-[var(--bg-primary)] px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10 border-t border-[var(--border-color)]">
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium cursor-pointer"
+                  className="px-6 py-2.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] hover:bg-[var(--bg-primary)] font-medium transition-all"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm cursor-pointer disabled:bg-blue-300 flex items-center justify-center gap-2"
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium shadow-sm disabled:bg-blue-300 flex items-center justify-center gap-2 transition-all"
                 >
                   {loading && (
                     <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>

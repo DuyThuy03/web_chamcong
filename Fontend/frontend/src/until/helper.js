@@ -1,7 +1,26 @@
 export const getDeviceInfo = () => {
   const userAgent = navigator.userAgent;
   const platform = navigator.platform;
-  return `${userAgent} - ${platform}`;
+  
+  let os = "Unknown OS";
+  if (userAgent.indexOf("Win") !== -1) os = "Windows";
+  else if (userAgent.indexOf("Mac") !== -1) os = "MacOS";
+  else if (userAgent.indexOf("Linux") !== -1) os = "Linux";
+  else if (userAgent.indexOf("Android") !== -1) os = "Android";
+  else if (userAgent.indexOf("like Mac") !== -1) os = "iOS";
+
+  let browser = "Unknown Browser";
+  if (userAgent.indexOf("Chrome") !== -1) browser = "Chrome";
+  else if (userAgent.indexOf("Firefox") !== -1) browser = "Firefox";
+  else if (userAgent.indexOf("Safari") !== -1) browser = "Safari";
+  else if (userAgent.indexOf("Edge") !== -1) browser = "Edge";
+
+  return {
+    os,
+    browser,
+    userAgent,
+    platform
+  };
 };
 
 export const getCurrentPosition = () => {
@@ -36,8 +55,8 @@ export const getCurrentPosition = () => {
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 20000,
+        maximumAge: Infinity,
       },
     );
   });

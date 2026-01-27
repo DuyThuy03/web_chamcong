@@ -618,65 +618,7 @@ func (r *AttendanceRepository) GetMonthlyAttendanceSummary(
     departmentID *int,
 ) ([]MonthlyAttendanceSummary, error) {
 
-    query := `WITH days_in_month AS (
-    SELECT generate_series(
-        date_trunc('month', make_date($1, $2, 1)),
-        (date_trunc('month', make_date($1, $2, 1)) + interval '1 month - 1 day')::date,
-        interval '1 day'
-    )::date AS day
-)
-SELECT
-    u.id AS user_id,
-    u.name AS user_name,
-    d.name AS department_name,
-
-    COUNT(DISTINCT dim.day) AS total_days,
-
-   COUNT(DISTINCT c.day) FILTER (
-    WHERE c.work_status IN ('ON_TIME', 'LATE')
-     
-      AND c.checkin_time IS NOT NULL
-      AND c.checkout_time IS NOT NULL
-) AS working_days,
-
-
-    COUNT(DISTINCT dim.day) FILTER (
-    WHERE lr.id IS NOT NULL
-) AS leave_days,
-
-
-  COUNT(DISTINCT dim.day)
-- COUNT(DISTINCT c.day) FILTER (
-    WHERE c.work_status IN ('ON_TIME', 'LATE')
-      AND c.leave_status = 'NONE'
-      AND c.checkin_time IS NOT NULL
-      AND c.checkout_time IS NOT NULL
-)
-- COUNT(DISTINCT dim.day) FILTER (
-    WHERE lr.id IS NOT NULL
-) AS absent_days
-,
-
-    COUNT(DISTINCT c.day) FILTER (
-        WHERE c.work_status = 'LATE'
-    ) AS late_days
-
-FROM users u
-LEFT JOIN department d ON d.id = u.department_id
-CROSS JOIN days_in_month dim
-LEFT JOIN CheckIO c
-    ON c.user_id = u.id AND c.day = dim.day
-LEFT JOIN LeaveRequest lr
-    ON lr.user_id = u.id
-   AND lr.status = 'DA_DUYET'
-   AND dim.day BETWEEN lr.from_date AND lr.to_date
-
-WHERE u.role = 'Nhân viên'
-  AND u.status = 'Hoạt động'
-  AND ($3::int IS NULL OR u.department_id = $3::int)
-
-GROUP BY u.id, u.name, d.name
-ORDER BY u.name;
+    query := `WITH days_in_month AS ( SELECT generate_series( date_trunc('month', make_date($1, $2, 1)), (date_trunc('month', make_date($1, $2, 1)) + interval '1 month - 1 day')::date, interval '1 day' )::date AS day ) SELECT u.id AS user_id, u.name AS user_name, d.name AS department_name, COUNT(DISTINCT dim.day) AS total_days, COUNT(DISTINCT c.day) FILTER ( WHERE c.work_status IN ('ON_TIME', 'LATE') AND c.checkin_time IS NOT NULL AND c.checkout_time IS NOT NULL ) AS working_days, COUNT(DISTINCT dim.day) FILTER ( WHERE lr.id IS NOT NULL ) AS leave_days, COUNT(DISTINCT dim.day) - COUNT(DISTINCT c.day) FILTER ( WHERE c.work_status IN ('ON_TIME', 'LATE') AND c.leave_status = 'NONE' AND c.checkin_time IS NOT NULL AND c.checkout_time IS NOT NULL ) - COUNT(DISTINCT dim.day) FILTER ( WHERE lr.id IS NOT NULL ) AS absent_days , COUNT(DISTINCT c.day) FILTER ( WHERE c.work_status = 'LATE' ) AS late_days FROM users u LEFT JOIN department d ON d.id = u.department_id CROSS JOIN days_in_month dim LEFT JOIN CheckIO c ON c.user_id = u.id AND c.day = dim.day LEFT JOIN LeaveRequest lr ON lr.user_id = u.id AND lr.status = 'DA_DUYET' AND dim.day BETWEEN lr.from_date AND lr.to_date WHERE u.role = 'Nhân viên' AND u.status = 'Hoạt động' AND ($3::int IS NULL OR u.department_id = $3::int) GROUP BY u.id, u.name, d.name ORDER BY u.name;
 `
 
     rows, err := r.db.QueryContext(ctx, query, year, month, departmentID)

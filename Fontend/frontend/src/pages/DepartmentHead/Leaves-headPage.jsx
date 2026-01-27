@@ -2,67 +2,74 @@ import React, { useEffect, useState } from "react";
 import api from "../../service/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { wsService } from "../../service/ws";
+import {
+  FileText,
+  Calendar,
+  User,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Filter,
+  RefreshCw,
+  AlertCircle,
+} from "lucide-react";
+
 const LeavesHeadPage = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(false);
-const { user } = useAuth();
+  const { user } = useAuth();
+  const [filterStatus, setFilterStatus] = useState("ALL");
+
   useEffect(() => {
     fetchLeaveRequests();
   }, []);
-//ws nhận sự kiện nhân viên gửi đơn nghỉ phép
 
-useEffect(() => {
-  if (!user) return;
+  // WebSocket - nhận sự kiện nhân viên gửi đơn nghỉ phép
+  useEffect(() => {
+    if (!user) return;
 
-  const handlerCreateLeave = (data) => {
-    // 1. Chỉ trưởng phòng mới nhận
-    // if (!user.is_leader) return;
+    const handlerCreateLeave = (data) => {
+      setLeaveRequests((prev) => {
+        const exists = prev.some((item) => item.id === data.id);
+        if (exists) return prev;
+        return [data, ...prev];
+      });
+    };
 
-    // 2. Chỉ nhận đơn trong phòng ban của mình
-    // if (user.department_id !== data.department_id) return;
+    wsService.on("CREATE_LEAVE_REQUEST", handlerCreateLeave);
 
-    setLeaveRequests((prev) => {
-      // 3. Tránh bị add trùng khi reconnect WS
-      const exists = prev.some((item) => item.id === data.id);
-      if (exists) return prev;
+    return () => {
+      wsService.off("CREATE_LEAVE_REQUEST", handlerCreateLeave);
+    };
+  }, [user]);
 
-      return [data, ...prev];
-    });
-  };
+  useEffect(() => {
+    if (!user) return;
 
-  wsService.on("CREATE_LEAVE_REQUEST", handlerCreateLeave);
+    const handlerUpdateLeave = (data) => {
+      console.log("WS RECEIVED LEAVE_CANCELED:", data);
+      setLeaveRequests((prev) => {
+        const index = prev.findIndex((item) => item.id === data.id);
 
-  return () => {
-    wsService.off("CREATE_LEAVE_REQUEST", handlerCreateLeave);
-  };
-}, [user]);
-useEffect(() => {
-  if (!user) return;
+        if (index !== -1) {
+          const updated = [...prev];
+          updated[index] = data;
+          return updated;
+        }
 
-  const handlerUpdateLeave = (data) => {
-     console.log("WS RECEIVED LEAVE_CANCELED:", data);
-    setLeaveRequests((prev) => {
-      const index = prev.findIndex((item) => item.id === data.id);
+        return [data, ...prev];
+      });
+    };
 
-      if (index !== -1) {
-        const updated = [...prev];
-        updated[index] = data;
-        return updated;
-      }
+    wsService.on("LEAVE_CANCELED", handlerUpdateLeave);
 
-      return [data, ...prev];
-    });
-  };
+    return () => {
+      wsService.off("LEAVE_CANCELED", handlerUpdateLeave);
+    };
+  }, [user]);
 
-  
-  wsService.on("LEAVE_CANCELED", handlerUpdateLeave);
+  console.log("Yêu cầu đơn nghỉ phép", leaveRequests);
 
-  return () => {
-   
-    wsService.off("LEAVE_CANCELED", handlerUpdateLeave);
-  };
-}, [user]);
-console.log("Yêu cầu đơn nghỉ phép", leaveRequests)
   const fetchLeaveRequests = async () => {
     try {
       setLoading(true);
@@ -78,6 +85,7 @@ console.log("Yêu cầu đơn nghỉ phép", leaveRequests)
       setLoading(false);
     }
   };
+
   const handleDelete = async (id) => {
     if (!window.confirm("Bạn có chắc muốn xóa đơn này?")) return;
     try {
@@ -89,7 +97,6 @@ console.log("Yêu cầu đơn nghỉ phép", leaveRequests)
       alert("Không thể xóa đơn");
     }
   };
-
 
   const handleApproveLeave = async (leaveId) => {
     if (!window.confirm("Bạn có chắc muốn duyệt đơn này?")) return;
@@ -124,13 +131,15 @@ console.log("Yêu cầu đơn nghỉ phép", leaveRequests)
   const getStatusColor = (status) => {
     switch (status) {
       case "CHO_DUYET":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-amber-50 text-amber-700 border-amber-200";
       case "DA_DUYET":
-        return "bg-green-100 text-green-800";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "TU_CHOI":
-        return "bg-red-100 text-red-800";
+        return "bg-rose-50 text-rose-700 border-rose-200";
+      case "DA_HUY":
+        return "bg-slate-50 text-slate-700 border-slate-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
 
@@ -142,192 +151,326 @@ console.log("Yêu cầu đơn nghỉ phép", leaveRequests)
         return "Đã duyệt";
       case "TU_CHOI":
         return "Từ chối";
+      case "DA_HUY":
+        return "Đã hủy";
       default:
         return status;
     }
   };
 
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "CHO_DUYET":
+        return <Clock size={14} />;
+      case "DA_DUYET":
+        return <CheckCircle2 size={14} />;
+      case "TU_CHOI":
+        return <XCircle size={14} />;
+      case "DA_HUY":
+        return <AlertCircle size={14} />;
+      default:
+        return null;
+    }
+  };
+
+  // Filter logic
+  const filteredRequests = leaveRequests.filter((r) => {
+    if (filterStatus === "ALL") return true;
+    return r.status === filterStatus;
+  });
+
+  const statusCounts = {
+    ALL: leaveRequests.length,
+    CHO_DUYET: leaveRequests.filter((r) => r.status === "CHO_DUYET").length,
+    DA_DUYET: leaveRequests.filter((r) => r.status === "DA_DUYET").length,
+    TU_CHOI: leaveRequests.filter((r) => r.status === "TU_CHOI").length,
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Đang tải...</div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium">Đang tải dữ liệu...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-10 transition-colors duration-200">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-          Quản lý đơn nghỉ phép
-        </h1>
-        <p className="text-sm sm:text-base text-gray-600 mt-1">
-          Duyệt và quản lý đơn nghỉ phép của nhân viên
-        </p>
+      <div className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 md:px-8 py-6 transition-colors duration-200">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+                <FileText className="text-blue-600" size={32} />
+                Quản lý đơn nghỉ phép
+              </h1>
+              <p className="text-sm sm:text-base text-[var(--text-secondary)] mt-2">
+                Duyệt và quản lý đơn nghỉ phép của nhân viên trong phòng ban
+              </p>
+            </div>
+
+            <button
+              onClick={fetchLeaveRequests}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[var(--accent-color)] hover:brightness-110 text-white rounded-xl font-medium transition-all shadow-sm hover:shadow-md"
+            >
+              <RefreshCw size={18} />
+              Làm mới
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">
-          Danh sách đơn nghỉ phép
-        </h2>
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
+        {/* Filter Tabs */}
+        <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-sm border border-[var(--border-color)] p-3">
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2 mr-2 mb-1 w-full sm:w-auto">
+              <Filter size={18} className="text-[var(--text-secondary)] shrink-0" />
+              <span className="text-sm font-medium text-[var(--text-secondary)] sm:hidden">
+                Lọc theo trạng thái:
+              </span>
+            </div>
+            {[
+              { key: "ALL", label: "Tất cả", color: "slate" },
+              { key: "CHO_DUYET", label: "Chờ duyệt", color: "amber" },
+              { key: "DA_DUYET", label: "Đã duyệt", color: "emerald" },
+              { key: "TU_CHOI", label: "Từ chối", color: "rose" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilterStatus(tab.key)}
+                className={`flex-1 sm:flex-none px-3 py-2 rounded-xl font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex items-center justify-center gap-2 ${
+                  filterStatus === tab.key
+                    ? `bg-${tab.color}-100 text-${tab.color}-700 shadow-sm ring-1 ring-${tab.color}-200`
+                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] border border-transparent hover:border-[var(--border-color)]"
+                }`}
+              >
+                {tab.label}
+                <span
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] sm:text-xs font-bold ${
+                    filterStatus === tab.key
+                      ? `bg-${tab.color}-200/50`
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {statusCounts[tab.key]}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {leaveRequests.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">
-            Chưa có đơn nghỉ phép nào
-          </p>
-        ) : (
-          <>
-            {/* ===== DESKTOP TABLE ===== */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="min-w-full text-left">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Nhân viên
-                    </th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Loại nghỉ
-                    </th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Từ ngày
-                    </th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Đến ngày
-                    </th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Lý do
-                    </th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Trạng thái
-                    </th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Hành động
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y">
-                  {leaveRequests.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 font-medium text-gray-900">
-                        {r.user_name}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        {r.type || "Nghỉ phép"}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        {formatDate(r.from_date)}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        {formatDate(r.to_date)}
-                      </td>
-                      <td className="px-6 py-4 text-sm max-w-xs truncate">
-                        {r.reason ? r.reason : "-"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                            r.status,
-                          )}`}
-                        >
-                          {getStatusText(r.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {r.status === "CHO_DUYET" && (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleApproveLeave(r.id)}
-                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
-                            >
-                              Duyệt
-                            </button>
-                            <button
-                              onClick={() => handleRejectLeave(r.id)}
-                              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
-                            >
-                              Từ chối
-                            </button>
-                          </div>
-                        )}
-                      </td>
+        {/* Content */}
+        <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+          {filteredRequests.length === 0 ? (
+            <div className="p-12 text-center">
+              <FileText size={48} className="mx-auto text-[var(--text-secondary)] mb-3 opacity-50" />
+              <p className="text-[var(--text-secondary)] font-medium">
+                Không có đơn nghỉ phép nào
+              </p>
+              <p className="text-sm text-[var(--text-secondary)] mt-1 opacity-70">
+                {filterStatus !== "ALL"
+                  ? "Thử thay đổi bộ lọc để xem các đơn khác"
+                  : "Chưa có đơn nghỉ phép nào được gửi"}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="min-w-full text-left">
+                  <thead className="bg-[var(--bg-primary)] border-b border-[var(--border-color)]">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Nhân viên
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Loại nghỉ
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Thời gian
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Lý do
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        Trạng thái
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider text-right">
+                        Hành động
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
 
-            {/* ===== MOBILE CARD LIST ===== */}
-            <div className="lg:hidden space-y-4">
-              {leaveRequests.map((r) => (
-                <div key={r.id} className="border rounded-lg p-4 space-y-3">
-                  <div>
-                    <p className="font-semibold text-gray-900">{r.user_name}</p>
-                    <p className="text-xs text-gray-500">
-                     {r.type === "NGHI_PHEP"
-                          ? "Nghỉ phép"
-                          : r.type === "DI_MUON"
-                            ? "Đi muộn"
-                            : "-"}
-                    </p>
-                  </div>
-
-                  <div className="text-sm text-gray-600">
-                    <p>
-                      <span className="font-medium">Từ:</span>{" "}
-                      {formatDate(r.from_date)}
-                    </p>
-                    <p>
-                      <span className="font-medium">Đến:</span>{" "}
-                      {formatDate(r.to_date)}
-                    </p>
-                  </div>
-
-                  <p className="text-sm text-gray-700">
-                    <span className="font-medium">Lý do:</span> {r.reason}
-                  </p>
-
-                  <div>
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                        r.status,
-                      )}`}
-                    >
-                      {getStatusText(r.status)}
-                    </span>
-                  </div>
-
-                  {r.status === "CHO_DUYET" && (
-                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                      <button
-                        onClick={() => handleApproveLeave(r.id)}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm"
-                      >
-                        Duyệt
-                      </button>
-                      <button
-                        onClick={() => handleRejectLeave(r.id)}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm"
-                      >
-                        Từ chối
-                      </button>
-                    </div>
-                  )}
-                   {(r.status === "DA_HUY" || r.status === "DA_DUYET" || r.status === "TU_CHOI") &&(
-                             <button
-                            onClick={() => handleDelete(r.id)}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
+                  <tbody className="divide-y divide-[var(--border-color)]">
+                    {filteredRequests.map((r) => (
+                      <tr key={r.id} className="hover:bg-[var(--bg-primary)] transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] font-bold text-sm shadow-sm">
+                              {r.user_name?.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-medium text-[var(--text-primary)]">
+                              {r.user_name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">
+                          {r.type === "NGHI_PHEP"
+                            ? "Nghỉ phép"
+                            : r.type === "DI_MUON"
+                              ? "Đi muộn"
+                              : r.type || "Nghỉ phép"}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar size={14} className="text-[var(--text-secondary)]" />
+                            <span className="font-medium text-[var(--text-primary)]">
+                              {formatDate(r.from_date)}
+                            </span>
+                            <span className="text-[var(--text-secondary)]">→</span>
+                            <span className="font-medium text-[var(--text-primary)]">
+                              {formatDate(r.to_date)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 max-w-xs">
+                          <p className="text-sm text-[var(--text-secondary)] truncate" title={r.reason}>
+                            {r.reason || "-"}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(
+                              r.status,
+                            )}`}
                           >
-                            Xóa
-                          </button>
-                        )}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+                            {getStatusIcon(r.status)}
+                            {getStatusText(r.status)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-end gap-2">
+                            {r.status === "CHO_DUYET" && (
+                              <>
+                                <button
+                                  onClick={() => handleApproveLeave(r.id)}
+                                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md flex items-center gap-1"
+                                >
+                                  <CheckCircle2 size={14} />
+                                  Duyệt
+                                </button>
+                                <button
+                                  onClick={() => handleRejectLeave(r.id)}
+                                  className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 rounded-lg text-sm font-medium transition-all flex items-center gap-1"
+                                >
+                                  <XCircle size={14} />
+                                  Từ chối
+                                </button>
+                              </>
+                            )}
+                            {(r.status === "DA_HUY" ||
+                              r.status === "DA_DUYET" ||
+                              r.status === "TU_CHOI") && (
+                              <button
+                                onClick={() => handleDelete(r.id)}
+                                className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-sm font-medium transition-all shadow-sm"
+                              >
+                                Xóa
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card List */}
+              <div className="lg:hidden divide-y divide-[var(--border-color)]">
+                {filteredRequests.map((r) => (
+                  <div key={r.id} className="p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] font-bold shadow-sm">
+                          {r.user_name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-[var(--text-primary)]">{r.user_name}</p>
+                          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                            {r.type === "NGHI_PHEP"
+                              ? "Nghỉ phép"
+                              : r.type === "DI_MUON"
+                                ? "Đi muộn"
+                                : r.type || "Nghỉ phép"}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg border shrink-0 ${getStatusColor(
+                          r.status,
+                        )}`}
+                      >
+                        {getStatusIcon(r.status)}
+                        {getStatusText(r.status)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                        <Calendar size={14} className="text-[var(--text-secondary)]" />
+                        <span className="font-medium">{formatDate(r.from_date)}</span>
+                        <span className="text-[var(--text-secondary)]">→</span>
+                        <span className="font-medium">{formatDate(r.to_date)}</span>
+                      </div>
+
+                      <div className="bg-[var(--bg-primary)] p-3 rounded-lg border border-[var(--border-color)]">
+                        <p className="text-xs text-[var(--text-secondary)] mb-1 font-medium">Lý do:</p>
+                        <p className="text-sm text-[var(--text-primary)] italic">
+                          "{r.reason || "Không có lý do"}"
+                        </p>
+                      </div>
+                    </div>
+
+                    {r.status === "CHO_DUYET" && (
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={() => handleApproveLeave(r.id)}
+                          className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle2 size={16} />
+                          Duyệt
+                        </button>
+                        <button
+                          onClick={() => handleRejectLeave(r.id)}
+                          className="flex-1 py-2.5 bg-[var(--bg-secondary)] border-2 border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2"
+                        >
+                          <XCircle size={16} />
+                          Từ chối
+                        </button>
+                      </div>
+                    )}
+                    {(r.status === "DA_HUY" ||
+                      r.status === "DA_DUYET" ||
+                      r.status === "TU_CHOI") && (
+                      <button
+                        onClick={() => handleDelete(r.id)}
+                        className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-sm font-bold transition-all shadow-sm"
+                      >
+                        Xóa đơn
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

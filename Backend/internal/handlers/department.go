@@ -21,7 +21,7 @@ func NewDepartmentHandler(deptRepo *repository.DepartmentRepository) *Department
 func (h *DepartmentHandler) GetAll(c *gin.Context) {
 	departments, err := h.deptRepo.GetAll()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get departments")
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 

@@ -464,7 +464,7 @@ func (h *LeaveHandler) Delete(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
 		return
 	}
-	userID, _ := middleware.GetUserID(c)
+	// userID, _ := middleware.GetUserID(c)
 
 	// Check if request exists
 	request, err := h.leaveRepo.GetByID(id)
@@ -476,10 +476,10 @@ func (h *LeaveHandler) Delete(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
 		return
 	}
-	if request.UserID != userID {
-		utils.ErrorResponse(c, http.StatusForbidden, "You can only delete your own leave requests")
-		return
-	}	
+	// if request.UserID != userID {
+	// 	utils.ErrorResponse(c, http.StatusForbidden, "You can only delete your own leave requests")
+	// 	return
+	// }	
 	if request.Status != "DA_HUY" && request.Status != "TU_CHOI" && request.Status !="DA_DUYET" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Only cancelled or rejected requests can be deleted")
 		return

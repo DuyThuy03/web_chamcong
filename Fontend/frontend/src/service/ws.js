@@ -7,7 +7,12 @@ class WSService {
   connect() {
     if (this.socket) return;
 
-    this.socket = new WebSocket("ws://localhost:8001/api/v1/ws");
+    const WS_URL = window.location.hostname === "localhost"
+  ? "ws://localhost:8001/api/v1/ws"
+  : "wss://thuy.vnatechlab.com/api/v1/ws";
+
+this.socket = new WebSocket(WS_URL);
+
 
     this.socket.onopen = () => {
       console.log("✅ WebSocket connected");

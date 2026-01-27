@@ -52,7 +52,7 @@ type OfficeConfig struct {
 }
 
 func Load() *Config {
-    err := godotenv.Load()
+     err := godotenv.Load(".env")
     if err != nil {
         log.Println("Warning: .env file not found, using environment variables")
     }
@@ -82,7 +82,7 @@ func Load() *Config {
         Server: ServerConfig{
             Port:              getEnv("SERVER_PORT", "8001"),
             Host:              getEnv("SERVER_HOST", "0.0.0.0"),
-            BaseURL:           getEnv("BASE_URL", "http://localhost:8001"),
+            BaseURL:           getEnv("BASE_URL", "https://thuy.vnatechlab.com"),
             CORSAllowedOrigins: []string{
                 "http://localhost:5173",
                 "http://localhost:3000",
