@@ -239,7 +239,8 @@ const LeaveRequestPage = () => {
                       value={formData.reason}
                       onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                       rows={2}
-                      placeholder="Ví dụ: Tôi bị sốt cần đi khám bác sĩ..."
+                      placeholder="Ví dụ:Em xin nghỉ vì có việc lên trường"
+                      required = {true}
                       className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md focus:ring-1 focus:ring-[var(--accent-color)] outline-none text-[var(--text-primary)] resize-none text-base sm:text-sm appearance-none"
                     />
                  </div>

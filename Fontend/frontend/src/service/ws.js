@@ -7,12 +7,26 @@ class WSService {
   connect() {
     if (this.socket) return;
 
-    const WS_URL = window.location.hostname === "localhost"
-  ? "ws://localhost:8001/api/v1/ws"
-  : "wss://thuy.vnatechlab.com/api/v1/ws";
+    let WS_URL;
+    const host = window.location.hostname;
+    
+    // 1. Localhost
+    if (host === "localhost" || host === "127.0.0.1") {
+      WS_URL = "ws://localhost:8001/api/v1/ws";
+    } 
+    // 2. Production Domain
+    else if (host === "thuy.vnatechlab.com") {
+      WS_URL = "wss://thuy.vnatechlab.com/api/v1/ws";
+    } 
+    // 3. Local Network / LAN (e.g., 192.168.x.x)
+    else {
+      // Default to port 8001 on the same host
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      WS_URL = `${protocol}//${host}:8001/api/v1/ws`;
+    }
 
-this.socket = new WebSocket(WS_URL);
-
+    console.log("Connecting to WS:", WS_URL);
+    this.socket = new WebSocket(WS_URL);
 
     this.socket.onopen = () => {
       console.log("✅ WebSocket connected");
@@ -28,12 +42,14 @@ this.socket = new WebSocket(WS_URL);
     };
 
     this.socket.onclose = () => {
-      console.log("❌ WebSocket disconnected");
+      console.log("❌ WebSocket disconnected, reconnecting in 3s...");
       this.socket = null;
+      setTimeout(() => this.connect(), 3000);
     };
 
     this.socket.onerror = (err) => {
       console.error("❌ WS error", err);
+      this.socket?.close();
     };
   }
 

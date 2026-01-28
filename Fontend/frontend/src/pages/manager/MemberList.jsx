@@ -723,6 +723,35 @@ const MemberListPage = () => {
                   </div>
                 </div>
 
+                {/* Role */}
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                    Vai trò <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Shield
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
+                      size={18}
+                    />
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full pl-10 pr-10 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all appearance-none cursor-pointer text-base sm:text-sm"
+                    >
+                      <option value="">-- Chọn vai trò --</option>
+                      <option value="Nhân viên">Nhân viên</option>
+                      <option value="Trưởng phòng">Trưởng phòng</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none mr-2">
+                      <svg className="w-4 h-4 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Phone */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">

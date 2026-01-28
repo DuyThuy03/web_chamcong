@@ -181,12 +181,7 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
                              {checkInData?.checkin_time ? formatTime(checkInData.checkin_time).slice(0,5) : '--:--'}
                           </p>
                       </div>
-                      <div>
-                           <p className="text-[var(--text-secondary)] text-xs mb-1">Thời gian làm việc</p>
-                           <p className="text-2xl font-mono font-bold text-[var(--accent-color)] flex items-center gap-2">
-                              {workedTime.hours}h {workedTime.minutes}m
-                           </p>
-                      </div>
+                     
                    </div>
                 </div>
                 

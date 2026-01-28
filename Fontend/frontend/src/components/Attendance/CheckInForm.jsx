@@ -53,7 +53,7 @@ const CheckInForm = ({ onSuccess }) => {
 
   useEffect(() => {
     loadShifts();
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
