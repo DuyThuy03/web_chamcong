@@ -17,7 +17,8 @@ import {
   TrendingUp,
   UserCheck,
   UserX,
-  RefreshCw
+  RefreshCw,
+  CloudCog
 } from "lucide-react";
 
 /**
@@ -112,7 +113,7 @@ const DepartmentHeadDashboard = () => {
         api.get("/manager/attendance/today"),
         api.get("/leaves"),
       ]);
-
+console.log("attendanceRes.data",attendanceRes.data);
       // Process Stats
       let totalEmployees = 0;
       if (usersRes.data.success) {

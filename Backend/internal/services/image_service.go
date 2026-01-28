@@ -1,6 +1,8 @@
 package services
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"image"
 	"image/color"
@@ -13,14 +15,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 )
 
 type ImageService struct {
-	uploadDir string
-	font      *truetype.Font
+	cld  *cloudinary.Cloudinary
+	font *truetype.Font
 }
 
 type OverlayInfo struct {
@@ -32,19 +36,21 @@ type OverlayInfo struct {
 	Device    string
 }
 
-func NewImageService(uploadDir string) (*ImageService, error) {
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+func NewImageService(cloudName, apiKey, apiSecret string) (*ImageService, error) {
+	cld, err := cloudinary.NewFromParams(cloudName, apiKey, apiSecret)
+	if err != nil {
 		return nil, err
 	}
 
 	font, err := loadVietnameseFont()
 	if err != nil {
-		return nil, err
+		// Log warning but don't fail, overlay might just not work looking good
+		fmt.Printf("Warning: failed to load font: %v\n", err)
 	}
 
 	return &ImageService{
-		uploadDir: uploadDir,
-		font:      font,
+		cld:  cld,
+		font: font,
 	}, nil
 }
 
@@ -61,7 +67,6 @@ func (s *ImageService) ProcessAndSaveImage(
 	}
 
 	// outImg := s.drawOverlay(img, info)
-
 	outImg := img
 
 	subDir := "checkout"
@@ -69,53 +74,55 @@ func (s *ImageService) ProcessAndSaveImage(
 		subDir = "checkin"
 	}
 
-	dateDir := info.Timestamp.Format("2006/01/02")
-	fullDir := filepath.Join(s.uploadDir, subDir, dateDir)
-	if err := os.MkdirAll(fullDir, 0755); err != nil {
-		return "", err
-	}
+	// Create a buffer to store the encoded image
+	buf := new(bytes.Buffer)
 
-	ext := filepath.Ext(filename)
-	if ext == "" {
-		ext = "." + format
-	}
-
-	name := fmt.Sprintf(
-		"%s_%d%s",
-		strings.TrimSuffix(filename, ext),
-		time.Now().UnixNano(),
-		ext,
-	)
-
-	fullPath := filepath.Join(fullDir, name)
-	f, err := os.Create(fullPath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
+	// Encode the image to the buffer
 	switch format {
 	case "png":
-		err = png.Encode(f, outImg)
+		err = png.Encode(buf, outImg)
 	default:
-		err = jpeg.Encode(f, outImg, &jpeg.Options{Quality: 90})
+		// Default to JPEG
+		err = jpeg.Encode(buf, outImg, &jpeg.Options{Quality: 90})
 	}
 
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(subDir, dateDir, name), nil
+	
+	dateDir := info.Timestamp.Format("2006-01-02")
+	
+	
+	cleanName := strings.TrimSuffix(filename, filepath.Ext(filename))
+	publicID := fmt.Sprintf("attendance/%s/%s/%s_%d", subDir, dateDir, cleanName, time.Now().UnixNano())
+
+	
+	uploadResult, err := s.cld.Upload.Upload(
+		context.Background(), 
+		buf, 
+		uploader.UploadParams{
+			PublicID: publicID,
+			ResourceType: "image",
+			Type: "upload",
+		},
+	)
+
+	if err != nil {
+		return "", fmt.Errorf("cloudinary upload failed: %w", err)
+	}
+
+	return uploadResult.SecureURL, nil
 }
 
-// ================= OVERLAY =================
+
 
 func (s *ImageService) drawOverlay(img image.Image, info OverlayInfo) *image.RGBA {
 	bounds := img.Bounds()
 	rgba := image.NewRGBA(bounds)
 	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
 
-	// ===== SCALE AN TOÀN CHO ẢNH ĐIỆN THOẠI =====
+
 	scale := float64(bounds.Dy()) / 1200
 	if scale < 0.9 {
 		scale = 0.9

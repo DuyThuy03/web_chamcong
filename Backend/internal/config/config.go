@@ -15,6 +15,7 @@ type Config struct {
     Server   ServerConfig
     Upload   UploadConfig
     Office   OfficeConfig
+    Cloudinary CloudinaryConfig
 }
 
 type DatabaseConfig struct {
@@ -51,6 +52,12 @@ type OfficeConfig struct {
     RadiusMeters  float64
 }
 
+type CloudinaryConfig struct {
+    CloudName string
+    ApiKey    string
+    ApiSecret string
+}
+
 func Load() *Config {
      err := godotenv.Load(".env")
     if err != nil {
@@ -82,7 +89,7 @@ func Load() *Config {
         Server: ServerConfig{
             Port:              getEnv("SERVER_PORT", "8001"),
             Host:              getEnv("SERVER_HOST", "0.0.0.0"),
-            BaseURL:           getEnv("BASE_URL", "https://thuy.vnatechlab.com"),
+            BaseURL:           getEnv("BASE_URL", "http://localhost:8001"),
             CORSAllowedOrigins: []string{
                 "http://localhost:5173",
                 "http://localhost:3000",
@@ -96,6 +103,11 @@ func Load() *Config {
             Latitude:     officeLat,
             Longitude:    officeLon,
             RadiusMeters: officeRadius,
+        },
+        Cloudinary: CloudinaryConfig{
+            CloudName: getEnv("CLOUD_NAME", ""),
+            ApiKey:    getEnv("CLOUD_API_KEY", ""),
+            ApiSecret: getEnv("CLOUD_SECRET", ""),
         },
     }
 }

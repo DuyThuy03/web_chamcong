@@ -38,6 +38,9 @@ func (r *AttendanceRepository) convertPathToURL(path string) string {
 	if path == "" {
 		return ""
 	}
+	if strings.HasPrefix(path, "http") {
+		return path
+	}
 	// Replace backslashes with forward slashes
 	path = strings.ReplaceAll(path, "\\", "/")
 	// Add /uploads/ prefix if not already present

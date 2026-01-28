@@ -12,7 +12,7 @@ import (
 
 	"attendance-system/internal/models"
 	"attendance-system/internal/repository"
-	"attendance-system/internal/websocket"
+	ws "attendance-system/internal/websocket"
 )
 
 type AttendanceService struct {
@@ -43,6 +43,9 @@ func NewAttendanceService(
 func (s *AttendanceService) convertPathToURL(path string) string {
 	if path == "" {
 		return ""
+	}
+	if strings.HasPrefix(path, "http") {
+		return path
 	}
 	// Replace backslashes with forward slashes
 	path = strings.ReplaceAll(path, "\\", "/")

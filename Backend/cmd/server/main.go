@@ -42,7 +42,11 @@ func main() {
     leaveRequestRepo := repository.NewLeaveRequestRepository(db.DB)
 
     // Initialize services
-    imageService, err := services.NewImageService(cfg.Upload.Directory)
+    imageService, err := services.NewImageService(
+        cfg.Cloudinary.CloudName,
+        cfg.Cloudinary.ApiKey,
+        cfg.Cloudinary.ApiSecret,
+    )
     if err != nil {
         log.Fatalf("Failed to initialize image service: %v", err)
     }
