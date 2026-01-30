@@ -89,7 +89,7 @@ func Load() *Config {
         Server: ServerConfig{
             Port:              getEnv("SERVER_PORT", "8001"),
             Host:              getEnv("SERVER_HOST", "0.0.0.0"),
-            BaseURL:           getEnv("BASE_URL", "http://localhost:8001"),
+            BaseURL:           getEnv("BASE_URL", "https://thuy.vnatechlab.com"),
             CORSAllowedOrigins: []string{
                 "http://localhost:5173",
                 "http://localhost:3000",

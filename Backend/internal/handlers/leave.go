@@ -12,7 +12,7 @@ import (
 	"attendance-system/internal/models"
 	"attendance-system/internal/repository"
 	"attendance-system/internal/utils"
-	"attendance-system/internal/websocket"
+	ws "attendance-system/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 )
@@ -211,9 +211,12 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 		limit = 20
 	}
 
+	// Status filter
+	status := c.DefaultQuery("status", "")
+	
 	offset := (page - 1) * limit
 
-	requests, total, err := h.leaveRepo.GetAll(userID, role, deptID, limit, offset)
+	requests, total, err := h.leaveRepo.GetAll(userID, role, deptID, limit, offset, status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -222,8 +225,18 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 		return
 	}
 
+	// Fetch counts
+	counts, errCounts := h.leaveRepo.GetStatusCounts(userID, role, deptID)
+	// If error getting counts, we can just log it and return empty counts or continue, 
+	// but it's better to provide it if possible. Failure here is not critical for list display though.
+	if errCounts != nil {
+		// Log error but proceed?
+		// For now let's just ignore or set nil
+	}
+
 	utils.SuccessResponse(c, http.StatusOK,  gin.H{
 		"requests": requests,
+		"counts":	counts,
 		"pagination": gin.H{
 			"total": total,
 			"page":  page,

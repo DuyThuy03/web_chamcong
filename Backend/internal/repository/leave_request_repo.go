@@ -2,6 +2,8 @@ package repository
 
 import (
 	"database/sql"
+	"strconv"
+	"strings"
 	"time"
 
 	"attendance-system/internal/models"
@@ -35,67 +37,76 @@ func (r *LeaveRequestRepository) Create(req *models.LeaveRequest) error {
 	).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 }
 
-func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, limit, offset int) ([]models.LeaveRequestResponse, int, error) {
+func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, limit, offset int, status string) ([]models.LeaveRequestResponse, int, error) {
 	var countQuery, dataQuery string
 	var args []interface{}
-
-	// Build queries based on role
+	var countArgs []interface{}
+	
+	// Base queries
+	var whereClauses []string
+	
+	// 1. Role-based filtering
 	if role == "Nhân viên" {
-		countQuery = `SELECT COUNT(*) FROM "leaverequest" WHERE user_id = $1`
-		dataQuery = `
-			SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
-			       lr.session, lr.expected_arrival_time, lr.reason, lr.status,
-			       lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
-			FROM "leaverequest" lr
-			JOIN users u ON lr.user_id = u.id
-			LEFT JOIN users approver ON lr.approved_by_id = approver.id
-			WHERE lr.user_id = $1
-			ORDER BY lr.created_at DESC
-			LIMIT $2 OFFSET $3
-		`
-		args = []interface{}{userID, limit, offset}
+		whereClauses = append(whereClauses, "lr.user_id = $1")
+		args = append(args, userID)
+		countArgs = append(countArgs, userID)
 	} else if role == "Trưởng phòng" && deptID != nil {
+		whereClauses = append(whereClauses, "u.department_id = $1")
+		args = append(args, *deptID)
+		countArgs = append(countArgs, *deptID)
+	} else {
+		// Admin/Manager - no initial filter needed for user/dept
+		// But for consistent indexing, we won't add anything here effectively starting args empty
+	}
+
+	// 2. Status filtering
+	if status != "" && status != "ALL" {
+		// Calculate next placeholder index
+		idx := len(args) + 1
+		whereClauses = append(whereClauses, "lr.status = $"+strconv.Itoa(idx))
+		args = append(args, status)
+		countArgs = append(countArgs, status)
+	}
+
+	// Construct WHERE string
+	whereStr := ""
+	if len(whereClauses) > 0 {
+		whereStr = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	// Build final queries
+	// Count query doesn't need pagination params
+	if role == "Trưởng phòng" && deptID != nil {
 		countQuery = `
 			SELECT COUNT(*) FROM "leaverequest" lr
 			JOIN users u ON lr.user_id = u.id
-			WHERE u.department_id = $1
-		`
-		dataQuery = `
-			SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
-			       lr.session, lr.expected_arrival_time, lr.reason, lr.status,
-			       lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
-			FROM "leaverequest" lr
-			JOIN users u ON lr.user_id = u.id
-			LEFT JOIN users approver ON lr.approved_by_id = approver.id
-			WHERE u.department_id = $1
-			ORDER BY lr.created_at DESC
-			LIMIT $2 OFFSET $3
-		`
-		args = []interface{}{*deptID, limit, offset}
+		` + whereStr
+	} else if role == "Nhân viên" {
+		countQuery = `SELECT COUNT(*) FROM "leaverequest" lr ` + whereStr
 	} else {
-		// Admin/Manager - see all
-		countQuery = `SELECT COUNT(*) FROM "leaverequest"`
-		dataQuery = `
-			SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
-			       lr.session, lr.expected_arrival_time, lr.reason, lr.status,
-			       lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
-			FROM "leaverequest" lr
-			JOIN users u ON lr.user_id = u.id
-			LEFT JOIN users approver ON lr.approved_by_id = approver.id
-			ORDER BY lr.created_at DESC
-			LIMIT $1 OFFSET $2
-		`
-		args = []interface{}{limit, offset}
+		// Admin 
+		countQuery = `SELECT COUNT(*) FROM "leaverequest" lr ` + whereStr
 	}
+
+	// Data query needs pagination params
+	dataQuery = `
+		SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
+				lr.session, lr.expected_arrival_time, lr.reason, lr.status,
+				lr.approved_by_id, approver.name as approved_by_name, lr.approved_at, lr.created_at
+		FROM "leaverequest" lr
+		JOIN users u ON lr.user_id = u.id
+		LEFT JOIN users approver ON lr.approved_by_id = approver.id
+	` + whereStr + `
+		ORDER BY lr.created_at DESC
+		LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
+	
+	
+	// Add pagination args
+	args = append(args, limit, offset)
 
 	// Get total count
 	var total int
-	var err error
-	if role == "Nhân viên" || (role == "Trưởng phòng" && deptID != nil) {
-		err = r.db.QueryRow(countQuery, args[0]).Scan(&total)
-	} else {
-		err = r.db.QueryRow(countQuery).Scan(&total)
-	}
+	err := r.db.QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
