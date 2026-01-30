@@ -36,6 +36,7 @@ const MemberListPage = () => {
   const { user } = useAuth();
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
   // Modal State
   const [selectedMember, setSelectedMember] = useState(null);
@@ -60,9 +61,17 @@ const MemberListPage = () => {
 
   // --- Effects ---
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
     fetchMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, searchTerm]);
+  }, [pagination.page, debouncedSearchTerm]);
 
   // --- Functions ---
   const fetchMembers = async () => {
@@ -73,11 +82,11 @@ const MemberListPage = () => {
       if (responseALL.data.success) {
         let filteredMembers = responseALL.data.data;
         // Filter client-side nếu API không hỗ trợ search param
-        if (searchTerm.trim()) {
+        if (debouncedSearchTerm.trim()) {
           filteredMembers = filteredMembers.filter(
             (member) =>
-              member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              member.email.toLowerCase().includes(searchTerm.toLowerCase()),
+              member.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+              member.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase()),
           );
         }
 

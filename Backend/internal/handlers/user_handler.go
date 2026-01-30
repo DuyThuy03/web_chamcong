@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"attendance-system/internal/middleware"
@@ -39,12 +40,33 @@ func (h *UserHandler) GetAll(c *gin.Context) {
     var total int
     var err error
 
-    if role == "Trưởng phòng" {
-        deptID, _ := middleware.GetDepartmentID(c)
+    keyword := strings.TrimSpace(c.Query("keyword"))
+
+if role == "Trưởng phòng" {
+    deptID, _ := middleware.GetDepartmentID(c)
+
+    if keyword != "" {
+        users, total, err = h.userRepo.GetByDepartmentWithSearch(
+            deptID, keyword, limit, offset,
+        )
+    } else {
         users, total, err = h.userRepo.GetByDepartment(deptID, limit, offset)
+    }
+} else {
+    if keyword != "" {
+        users, total, err = h.userRepo.GetAllWithSearch(keyword, limit, offset)
     } else {
         users, total, err = h.userRepo.GetAll(limit, offset)
     }
+}
+
+        if keyword != "" && len(keyword) < 2 {
+            utils.PaginatedSuccessResponse(c, http.StatusOK, []any{}, utils.Pagination{
+                Total: 0, Page: page, Limit: limit, TotalPages: 0,
+            })
+            return
+        }
+  
 
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get users")
@@ -61,6 +83,7 @@ func (h *UserHandler) GetAll(c *gin.Context) {
 
     utils.PaginatedSuccessResponse(c, http.StatusOK, users, pagination)
 }
+
 
 func (h *UserHandler) GetByID(c *gin.Context) {
     id, err := strconv.Atoi(c.Param("id"))

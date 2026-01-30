@@ -52,10 +52,7 @@ const LeavesHeadPage = () => {
       setLeaveRequests((prev) => {
         const exists = prev.some((item) => item.id === data.id);
         if (exists) return prev;
-        // If we are on page 1 and status matches (or is ALL), add to top
-        // This is complex with server-side pagination. For simplicity, we might just re-fetch, or add if it matches filter.
-        // For now, let's keep it simple: if event happens, we could refetch or naive add.
-        // Given complexity, let's just refetch.
+       
         fetchLeaveRequests(); 
         fetchCounts();
         return prev;

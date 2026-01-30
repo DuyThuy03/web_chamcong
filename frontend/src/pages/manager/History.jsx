@@ -27,9 +27,19 @@ const History = () => {
 
     const [viewingImage, setViewingImage] = useState(null);
 
+    const [debouncedUserName, setDebouncedUserName] = useState(filters.user_name);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedUserName(filters.user_name);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [filters.user_name]);
+
     useEffect(() => {
         loadHistory();
-    }, [pagination.page, filters]);
+    }, [pagination.page, filters.from_date, filters.to_date, debouncedUserName]);
 
     //ws checkout
     useEffect(() => {
@@ -100,6 +110,7 @@ const History = () => {
         try {
             const query = new URLSearchParams({
                 ...filters,
+                user_name: debouncedUserName,
                 page: pagination.page,
                 limit: pagination.limit,
             }).toString();

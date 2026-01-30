@@ -199,6 +199,147 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.UserResponse, int,
     
     return users, total, nil
 }
+func (r *UserRepository) GetAllWithSearch(
+    keyword string, limit, offset int,
+) ([]*models.UserResponse, int, error) {
+
+    var total int
+
+    countQuery := `
+        SELECT COUNT(*)
+        FROM users
+        WHERE name ILIKE '%' || $1 || '%'
+           OR email ILIKE '%' || $1 || '%'
+    `
+    if err := r.db.QueryRow(countQuery, keyword).Scan(&total); err != nil {
+        return nil, 0, err
+    }
+
+    rows, err := r.db.Query(`
+        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender,
+               u.phone_number, u.role, u.department_id, u.status, u.created_at,
+               d.name as department_name
+        FROM users u
+        LEFT JOIN department d ON u.department_id = d.id
+        WHERE u.name ILIKE '%' || $1 || '%'
+           OR u.email ILIKE '%' || $1 || '%'
+        ORDER BY u.created_at DESC
+        LIMIT $2 OFFSET $3
+    `, keyword, limit, offset)
+    if err != nil {
+        return nil, 0, err
+    }
+    defer rows.Close()
+
+    users := []*models.UserResponse{}
+    for rows.Next() {
+        user := &models.UserResponse{}
+        var deptID sql.NullInt64
+        var deptName sql.NullString
+
+        err := rows.Scan(
+            &user.ID, &user.Name, &user.Email, &user.DateOfBirth,
+            &user.Address, &user.Gender, &user.PhoneNumber, &user.Role,
+            &deptID, &user.Status, &user.CreatedAt, &deptName,
+        )
+        if err != nil {
+            return nil, 0, err
+        }
+
+        if deptID.Valid {
+            id := int(deptID.Int64)
+            user.DepartmentID = &id
+        }
+        if deptName.Valid {
+            user.DepartmentName = &deptName.String
+        }
+
+        users = append(users, user)
+    }
+
+    return users, total, nil
+}
+
+func (r *UserRepository) GetByDepartmentWithSearch(
+    deptID int,
+    keyword string,
+    limit, offset int,
+) ([]*models.UserResponse, int, error) {
+
+    var total int
+
+    // COUNT
+    countQuery := `
+        SELECT COUNT(*)
+        FROM users
+        WHERE department_id = $1
+          AND (
+              name ILIKE '%' || $2 || '%'
+              OR email ILIKE '%' || $2 || '%'
+          )
+    `
+    if err := r.db.QueryRow(countQuery, deptID, keyword).Scan(&total); err != nil {
+        return nil, 0, err
+    }
+
+    // SELECT
+    rows, err := r.db.Query(`
+        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender,
+               u.phone_number, u.role, u.department_id, u.status, u.created_at,
+               d.name as department_name
+        FROM users u
+        LEFT JOIN department d ON u.department_id = d.id
+        WHERE u.department_id = $1
+          AND (
+              u.name ILIKE '%' || $2 || '%'
+              OR u.email ILIKE '%' || $2 || '%'
+          )
+        ORDER BY u.created_at DESC
+        LIMIT $3 OFFSET $4
+    `, deptID, keyword, limit, offset)
+    if err != nil {
+        return nil, 0, err
+    }
+    defer rows.Close()
+
+    users := []*models.UserResponse{}
+    for rows.Next() {
+        user := &models.UserResponse{}
+        var deptID sql.NullInt64
+        var deptName sql.NullString
+
+        err := rows.Scan(
+            &user.ID,
+            &user.Name,
+            &user.Email,
+            &user.DateOfBirth,
+            &user.Address,
+            &user.Gender,
+            &user.PhoneNumber,
+            &user.Role,
+            &deptID,
+            &user.Status,
+            &user.CreatedAt,
+            &deptName,
+        )
+        if err != nil {
+            return nil, 0, err
+        }
+
+        if deptID.Valid {
+            id := int(deptID.Int64)
+            user.DepartmentID = &id
+        }
+        if deptName.Valid {
+            user.DepartmentName = &deptName.String
+        }
+
+        users = append(users, user)
+    }
+
+    return users, total, nil
+}
+
 
 func (r *UserRepository) UserUpdateProfile(user *models.User) error {
     _, err := r.db.Exec(`
