@@ -32,11 +32,21 @@ export const getCurrentPosition = () => {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        });
+        const { latitude, longitude, accuracy } = position.coords;
+
+        
+        if (accuracy > 100) {
+          reject(
+            new Error(
+              `GPS không chính xác (${Math.round(
+                accuracy
+              )}m). Vui lòng di chuyển ra gần cửa sổ hoặc bật GPS.`,
+            ),
+          );
+          return;
+        }
+
+        resolve({ latitude, longitude, accuracy });
       },
       (error) => {
         let message = "Unable to get location";
@@ -56,15 +66,15 @@ export const getCurrentPosition = () => {
       {
         enableHighAccuracy: true,
         timeout: 20000,
-        maximumAge: Infinity,
+        maximumAge: 0,
       },
     );
   });
 };
 
+
 export const reverseGeocode = async (latitude, longitude) => {
   try {
-    // Using Nominatim (OpenStreetMap) for reverse geocoding
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
     );

@@ -12,19 +12,23 @@ import (
 	"attendance-system/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	
+	ws "attendance-system/internal/websocket"
 )
 
 type ManagerHandler struct {
 	userRepo       *repository.UserRepository
 	attendanceRepo *repository.AttendanceRepository
 	userService    *services.UserService
+	hub            *ws.Hub
 }
 
-func NewManagerHandler(userRepo *repository.UserRepository, attendanceRepo *repository.AttendanceRepository, userService *services.UserService) *ManagerHandler {
+func NewManagerHandler(userRepo *repository.UserRepository, attendanceRepo *repository.AttendanceRepository, userService *services.UserService, hub *ws.Hub) *ManagerHandler {
 	return &ManagerHandler{
 		userRepo:       userRepo,
 		attendanceRepo: attendanceRepo,
 		userService:    userService,
+		hub:            hub,
 	}
 }
 
@@ -310,6 +314,8 @@ func (h *ManagerHandler) CreateMember(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusCreated, userResponse)
+
+	ws.Emit(h.hub, ws.EventUserCreated, userResponse)
 }
 
 
@@ -362,6 +368,8 @@ func (h *ManagerHandler) UpdateMember(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, updatedUser)
+
+	ws.Emit(h.hub, ws.EventUserUpdated, updatedUser)
 }
 
 // DeleteMember - Xóa thành viên (chỉ Quản lý và Giám đốc)
@@ -387,6 +395,8 @@ func (h *ManagerHandler) DeleteMember(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, gin.H{"message": "Xóa thành viên thành công"})
+
+	ws.Emit(h.hub, ws.EventUserDeleted, map[string]int{"id": id})
 }
 
 // GetMemberDetail - Xem chi tiết thành viên

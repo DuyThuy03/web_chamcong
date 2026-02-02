@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Lock
 } from "lucide-react";
+import { wsService } from "../../service/ws";
 
 /**
  * EmployeeDashboard.jsx
@@ -73,7 +74,7 @@ const InputField = ({ label, icon: Icon, name, type = "text", value, disabled = 
 );
 
 const EmployeeDashboard = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -109,6 +110,9 @@ const EmployeeDashboard = () => {
       });
     }
   }, [user]);
+
+  // WebSocket Handler logic has been moved to GlobalListener.jsx
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;

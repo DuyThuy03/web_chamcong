@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import api from "../../service/api";
+import { wsService } from "../../service/ws";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { formatDate } from "../../until/helper";
@@ -73,6 +74,51 @@ const MemberListPage = () => {
     fetchMembers();
     
   }, [pagination.page, debouncedSearchTerm]);
+
+  // WebSocket Handlers
+  useEffect(() => {
+    if (!user) return;
+
+    const handleUserCreated = (newUser) => {
+       // For Manager/Directory (who sees all), simply add the new user
+       setMembers((prev) => [newUser, ...prev]);
+       setPagination((prev) => ({ ...prev, total: prev.total + 1 }));
+    };
+
+    const handleUserUpdated = (updatedUser) => {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === updatedUser.id ? updatedUser : m))
+      );
+      // Update selected member if it is the one being updated
+      setSelectedMember(prev => prev?.id === updatedUser.id ? updatedUser : prev);
+    };
+
+    const handleUserDeleted = (data) => {
+      // data is { id: ... }
+      const deletedId = data.id;
+      setMembers((prev) => prev.filter((m) => m.id !== deletedId));
+      setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+      
+      // Close modal if deleting selected member
+      setSelectedMember(prev => {
+          if (prev?.id === deletedId) {
+              setIsDetailOpen(false);
+              return null;
+          }
+          return prev;
+      });
+    };
+
+    wsService.on("USER_CREATED", handleUserCreated);
+    wsService.on("USER_UPDATED", handleUserUpdated);
+    wsService.on("USER_DELETED", handleUserDeleted);
+
+    return () => {
+      wsService.off("USER_CREATED", handleUserCreated);
+      wsService.off("USER_UPDATED", handleUserUpdated);
+      wsService.off("USER_DELETED", handleUserDeleted);
+    };
+  }, [user]);
 
   useEffect(() => {
     getDepartment();

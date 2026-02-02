@@ -50,6 +50,7 @@ type OfficeConfig struct {
     Latitude      float64
     Longitude     float64
     RadiusMeters  float64
+    MaxAccuracy   float64
 }
 
 type CloudinaryConfig struct {
@@ -70,6 +71,7 @@ func Load() *Config {
     officeLat, _ := strconv.ParseFloat(getEnv("OFFICE_LATITUDE", "20.962448"), 64)
     officeLon, _ := strconv.ParseFloat(getEnv("OFFICE_LONGITUDE", "105.790762"), 64)
     officeRadius, _ := strconv.ParseFloat(getEnv("OFFICE_RADIUS_METERS", "100"), 64)
+    officeMaxAccuracy, _ := strconv.ParseFloat(getEnv("OFFICE_MAX_ACCURACY", "300"), 64)
 
     return &Config{
         Database: DatabaseConfig{
@@ -103,6 +105,7 @@ func Load() *Config {
             Latitude:     officeLat,
             Longitude:    officeLon,
             RadiusMeters: officeRadius,
+            MaxAccuracy:  officeMaxAccuracy,
         },
         Cloudinary: CloudinaryConfig{
             CloudName: getEnv("CLOUD_NAME", ""),

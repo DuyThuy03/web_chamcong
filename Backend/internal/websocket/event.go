@@ -10,4 +10,3 @@ func Emit(hub *Hub, event string, data any) {
 
 	hub.Broadcast <- payload
 }
-

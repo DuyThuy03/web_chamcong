@@ -313,6 +313,7 @@ const Layout = ({ children }) => {
             w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border-color)]
             transition-transform duration-300 ease-in-out
             md:flex md:flex-col
+            pt-20 md:pt-0
           `}
         >
           <nav className="p-4 space-y-2 overflow-y-auto flex-1 custom-scrollbar">

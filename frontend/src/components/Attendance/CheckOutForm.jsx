@@ -125,7 +125,8 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
         location.longitude,
         address,
         device,
-        selectedShift
+        selectedShift,
+        location.accuracy
       );
 
       if (response.success) {

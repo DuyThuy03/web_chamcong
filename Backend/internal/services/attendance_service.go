@@ -62,7 +62,7 @@ func (s *AttendanceService) CheckIn(
     userName string,
     imageFile io.Reader,
     filename string,
-    latitude, longitude float64,
+    latitude, longitude, accuracy float64,
     address, device string,
     shiftID int,
 ) (*models.CheckIOResponse, error) {
@@ -80,10 +80,11 @@ func (s *AttendanceService) CheckIn(
     }
 
     // Validate location
-    isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude)
+    isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
     if !isValid {
         return nil, fmt.Errorf("vị trí check-in ngoài phạm vi cho phép (%.0fm từ văn phòng)", distance)
     }
+
 
     // Process image with overlay
     overlayInfo := OverlayInfo{
@@ -159,7 +160,7 @@ func (s *AttendanceService) CheckOut(
 	userName string,
 	imageFile io.Reader,
 	filename string,
-	latitude, longitude float64,
+	latitude, longitude, accuracy float64,
 	address, device string,
 	shiftID int,
 ) (*models.CheckIOResponse, error) {
@@ -176,8 +177,9 @@ func (s *AttendanceService) CheckOut(
 	if existing.CheckoutTime.Valid {
 		return nil, errors.New("đã check-out hôm nay")
 	}
+	
 	// Xác thực vị trí
-	isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude)
+	isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
 	if !isValid {
 		return nil, fmt.Errorf("vị trí check-out ngoài phạm vi cho phép (%.0fm từ văn phòng)", distance)
 	}
@@ -201,7 +203,7 @@ func (s *AttendanceService) CheckOut(
 	existing.CheckoutLatitude = sql.NullFloat64{Float64: latitude, Valid: true}
 	existing.CheckoutLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
 	existing.CheckoutAddress = sql.NullString{String: address, Valid: true}
-
+	existing.Device = sql.NullString{String: device, Valid: true}
 	err = s.repo.Update(existing)
 	if err != nil {
 		return nil, err

@@ -68,6 +68,10 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+import GlobalListener from "./components/GlobalListener";
+
+// ... existing imports
+
 // Root redirect component
 const RootRedirect = () => {
   const { getDefaultRoute } = useAuth();
@@ -75,26 +79,12 @@ const RootRedirect = () => {
 };
 
 function App() {
-  const { user } = useAuth();
-
-  // Quản lý WebSocket dựa trên user
-  useEffect(() => {
-    if (!user) {
-      // user chưa login hoặc đã logout → đảm bảo đóng WS
-      wsService.disconnect();
-      return;
-    }
-
-    // user đã có → mở kết nối nếu chưa có
-    wsService.connect();
-
-    // cleanup không cần disconnect ở đây,
-    // vì khi user đổi từ có -> null, effect sẽ chạy lại và disconnect ở trên
-  }, [user]);
+  // GlobalListener now handles WS connection logic, so we remove the useEffect here.
 
   return (
     <ToastProvider>
       <BrowserRouter>
+        <GlobalListener />
         <Routes>
           <Route
             path="/login"

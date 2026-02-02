@@ -192,15 +192,8 @@ ws.Emit(
 func (h *LeaveHandler) GetAll(c *gin.Context) {
 	userID, _ := middleware.GetUserID(c)
 	role, _ := middleware.GetUserRole(c)
-	
-	var deptID *int
-	if role == "Trưởng phòng" {
-		id, exists := middleware.GetDepartmentID(c)
-		if exists {
-			deptID = &id
-		}
-	}
 
+	
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
@@ -210,33 +203,56 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-
-	// Status filter
-	status := c.DefaultQuery("status", "")
-	
 	offset := (page - 1) * limit
 
-	requests, total, err := h.leaveRepo.GetAll(userID, role, deptID, limit, offset, status)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "Failed to get leave requests: " + err.Error(),
-		})
+
+	status := strings.TrimSpace(c.DefaultQuery("status", ""))
+
+
+	var deptID *int
+
+	switch role {
+	case "Nhân viên":
+		
+		id := 0
+		deptID = &id
+
+	case "Trưởng phòng":
+		id, exists := middleware.GetDepartmentID(c)
+		if !exists {
+			utils.ErrorResponse(c, http.StatusForbidden, "Không xác định được phòng ban")
+			return
+		}
+		deptID = &id
+
+	case "Quản lý":
+		
+		deptID = nil
+
+	default:
+		utils.ErrorResponse(c, http.StatusForbidden, "Bạn không có quyền truy cập")
 		return
 	}
 
-	// Fetch counts
-	counts, errCounts := h.leaveRepo.GetStatusCounts(userID, role, deptID)
-	// If error getting counts, we can just log it and return empty counts or continue, 
-	// but it's better to provide it if possible. Failure here is not critical for list display though.
-	if errCounts != nil {
-		// Log error but proceed?
-		// For now let's just ignore or set nil
+	// Fetch data
+	requests, total, err := h.leaveRepo.GetAll(
+		userID,
+		role,
+		deptID,
+		limit,
+		offset,
+		status,
+	)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave requests")
+		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK,  gin.H{
+	counts, _ := h.leaveRepo.GetStatusCounts(userID, role, deptID)
+
+	utils.SuccessResponse(c, http.StatusOK, gin.H{
 		"requests": requests,
-		"counts":	counts,
+		"counts":   counts,
 		"pagination": gin.H{
 			"total": total,
 			"page":  page,
@@ -244,6 +260,7 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 		},
 	})
 }
+
 
 //
 func (h *LeaveHandler) GetByID(c *gin.Context) {
@@ -274,7 +291,7 @@ func (h *LeaveHandler) GetByID(c *gin.Context) {
 	}
 
 	if role == "Trưởng phòng" {
-		// Check if the request user is in the same department
+		
 		requestUser, err := h.userRepo.GetByID(request.UserID)
 		if err != nil || requestUser == nil {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to verify access")

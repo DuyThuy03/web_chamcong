@@ -12,7 +12,7 @@ import (
 	"attendance-system/internal/middleware"
 	"attendance-system/internal/repository"
 	"attendance-system/internal/services"
-    "attendance-system/internal/websocket"
+	ws "attendance-system/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 )
@@ -55,6 +55,7 @@ func main() {
         cfg.Office.Latitude,
         cfg.Office.Longitude,
         cfg.Office.RadiusMeters,
+        cfg.Office.MaxAccuracy,
     )
 
     attendanceService := services.NewAttendanceService(
@@ -74,7 +75,7 @@ func main() {
     departmentHandler := handlers.NewDepartmentHandler(departmentRepo)
     shiftHandler := handlers.NewShiftHandler(shiftRepo)
     leaveHandler := handlers.NewLeaveHandler(leaveRequestRepo, userRepo, hub)
-    managerHandler := handlers.NewManagerHandler(userRepo, attendanceRepo, userService)
+    managerHandler := handlers.NewManagerHandler(userRepo, attendanceRepo, userService, hub)
     dashboardHandler := handlers.NewDashboardHandler(
         services.NewDashboardService(
             repository.NewDashboardRepository(db.DB),
@@ -83,7 +84,7 @@ func main() {
     )
 
     // Setup Gin router
-    router := setupRouter(cfg, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler, managerHandler, dashboardHandler, hub)
+    router := setupRouter(cfg, userRepo, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler, managerHandler, dashboardHandler, hub)
 
     // Start server
     addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -96,6 +97,7 @@ func main() {
 
 func setupRouter(
     cfg *config.Config,
+    userRepo *repository.UserRepository,
     authHandler *handlers.AuthHandler,
     userHandler *handlers.UserHandler,
     attendanceHandler *handlers.AttendanceHandler,
@@ -167,7 +169,7 @@ func setupRouter(
 
         // Protected routes
         protected := v1.Group("")
-        protected.Use(middleware.AuthMiddleware(cfg))
+        protected.Use(middleware.AuthMiddleware(cfg, userRepo))
         {
             // User profile
             protected.GET("/profile", authHandler.GetProfile)
@@ -230,13 +232,7 @@ func setupRouter(
             {
                 // Xem trạng thái điểm danh hôm nay
                 manager.GET("/attendance/today", managerHandler.GetTodayAttendanceStatus)
-                // manager.GET("/members",userHandler.GetAll)
-                // Xem lịch sử chấm công của thành viên
-                // manager.GET("/attendance/member-history", managerHandler.GetMemberAttendanceHistory)
                 
-                // Xem lịch sử chấm công của phòng ban
-                // manager.GET("/attendance/department-history", managerHandler.GetDepartmentAttendanceHistory)
-                //Thống kê cuối tháng
                 manager.GET("/attendance/monthly-summary", attendanceHandler.GetMonthlyAttendanceSummary)
                 // Quản lý thành viên
                 manager.GET("/members", managerHandler.GetDepartmentMembers)

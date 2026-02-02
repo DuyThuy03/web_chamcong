@@ -1,7 +1,7 @@
 import api from "./api";
 
 export const attendanceService = {
-  async checkIn(imageFile, latitude, longitude, address, device, shiftId) {
+  async checkIn(imageFile, latitude, longitude, address, device, shiftId, accuracy) {
     const formData = new FormData();
     formData.append("image", imageFile);
     formData.append("latitude", latitude);
@@ -9,6 +9,7 @@ export const attendanceService = {
     formData.append("address", address || "");
     formData.append("device", device);
     formData.append("shift_id", shiftId);
+    if (accuracy) formData.append("accuracy", accuracy);
 
     const response = await api.post("/attendance/checkin", formData, {
       headers: {
@@ -20,7 +21,7 @@ export const attendanceService = {
     return response.data;
   },
 
-  async checkOut(imageFile, latitude, longitude, address, device, shiftId) {
+  async checkOut(imageFile, latitude, longitude, address, device, shiftId, accuracy) {
     const formData = new FormData();
     formData.append("image", imageFile);
     formData.append("latitude", latitude);
@@ -28,6 +29,7 @@ export const attendanceService = {
     formData.append("address", address || "");
     formData.append("device", device);
     formData.append("shift_id", shiftId);
+    if (accuracy) formData.append("accuracy", accuracy);
 
     const response = await api.post("/attendance/checkout", formData, {
       headers: {

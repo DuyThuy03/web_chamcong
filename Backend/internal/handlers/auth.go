@@ -142,6 +142,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
         return
     }
 
+    if user.Status != "Hoạt động" {
+        utils.ErrorResponse(c, http.StatusForbidden, "Tài khoản đã bị vô hiệu hóa")
+        return
+    }
+
     log.Println("User found:", user.Email, "ID:", user.ID)
 
     // // Check password

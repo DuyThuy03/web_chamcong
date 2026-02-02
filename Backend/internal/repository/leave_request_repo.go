@@ -55,8 +55,7 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 		args = append(args, *deptID)
 		countArgs = append(countArgs, *deptID)
 	} else {
-		// Admin/Manager - no initial filter needed for user/dept
-		// But for consistent indexing, we won't add anything here effectively starting args empty
+		
 	}
 
 	// 2. Status filtering

@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import api from "../../service/api";
+import { wsService } from "../../service/ws";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { formatDate } from "../../until/helper";
@@ -72,6 +73,55 @@ const MemberListPage = () => {
     fetchMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, debouncedSearchTerm]);
+
+  // WebSocket Handlers
+  useEffect(() => {
+    if (!user) return;
+
+    const handleUserCreated = (newUser) => {
+      // Logic to check if user belongs to this department (for Department Head)
+      if (user.role === "Trưởng phòng" && newUser.department_id !== user.department_id) {
+          return;
+      }
+      // Add to list, prepend
+      setMembers((prev) => [newUser, ...prev]);
+      setPagination((prev) => ({ ...prev, total: prev.total + 1 }));
+    };
+
+    const handleUserUpdated = (updatedUser) => {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === updatedUser.id ? updatedUser : m))
+      );
+      // Update selected member if it is the one being updated
+      setSelectedMember(prev => prev?.id === updatedUser.id ? updatedUser : prev);
+    };
+
+    const handleUserDeleted = (data) => {
+      // data is { id: ... }
+      const deletedId = data.id;
+      setMembers((prev) => prev.filter((m) => m.id !== deletedId));
+      setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+      
+      // Close modal if deleting selected member
+      setSelectedMember(prev => {
+          if (prev?.id === deletedId) {
+              setIsDetailOpen(false);
+              return null;
+          }
+          return prev;
+      });
+    };
+
+    wsService.on("USER_CREATED", handleUserCreated);
+    wsService.on("USER_UPDATED", handleUserUpdated);
+    wsService.on("USER_DELETED", handleUserDeleted);
+
+    return () => {
+      wsService.off("USER_CREATED", handleUserCreated);
+      wsService.off("USER_UPDATED", handleUserUpdated);
+      wsService.off("USER_DELETED", handleUserDeleted);
+    };
+  }, [user]);
 
   // --- Functions ---
   const fetchMembers = async () => {
@@ -645,16 +695,16 @@ const MemberListPage = () => {
               )}
 
               {/* Body */}
-              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Full Name */}
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     Họ và tên <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <User
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
-                      size={18}
+                      size={16}
                     />
                     <input
                       type="text"
@@ -663,20 +713,20 @@ const MemberListPage = () => {
                       value={formData.name}
                       onChange={handleFormChange}
                       placeholder="Nguyễn Văn A"
-                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-base sm:text-sm appearance-none"
+                      className="w-full pl-9 pr-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-sm"
                     />
                   </div>
                 </div>
 
                 {/* Email */}
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     Email <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
-                      size={18}
+                      size={16}
                     />
                     <input
                       type="email"
@@ -685,14 +735,14 @@ const MemberListPage = () => {
                       value={formData.email}
                       onChange={handleFormChange}
                       placeholder="example@company.com"
-                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-base sm:text-sm appearance-none"
+                      className="w-full pl-9 pr-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-sm"
                     />
                   </div>
                 </div>
 
                 {/* Password */}
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     {isEditing
                       ? "Mật khẩu mới (Để trống nếu không đổi)"
                       : "Mật khẩu"}
@@ -704,13 +754,13 @@ const MemberListPage = () => {
                     value={formData.password}
                     onChange={handleFormChange}
                     placeholder="••••••"
-                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-base sm:text-sm appearance-none"
+                    className="w-full px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-sm"
                   />
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     Số điện thoại <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -719,13 +769,13 @@ const MemberListPage = () => {
                     value={formData.phone_number}
                     onChange={handleFormChange}
                     placeholder="0912345678"
-                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-base sm:text-sm appearance-none"
+                    className="w-full px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-sm"
                   />
                 </div>
 
                 {/* Date of Birth */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     Ngày sinh <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -733,20 +783,20 @@ const MemberListPage = () => {
                     name="date_of_birth"
                     value={formData.date_of_birth}
                     onChange={handleFormChange}
-                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all text-base sm:text-sm appearance-none"
+                    className="w-full px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all text-sm"
                   />
                 </div>
 
                 {/* Gender */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     Giới tính <span className="text-rose-500">*</span>
                   </label>
                   <select
                     name="gender"
                     value={formData.gender}
                     onChange={handleFormChange}
-                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all text-base sm:text-sm appearance-none"
+                    className="w-full px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all text-sm"
                   >
                     <option value="">-- Chọn giới tính --</option>
                     <option value="Nam">Nam</option>
@@ -757,14 +807,14 @@ const MemberListPage = () => {
 
                 {/* Status */}
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     Trạng thái
                   </label>
                   <select
                     name="status"
                     value={formData.status}
                     onChange={handleFormChange}
-                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all text-base sm:text-sm appearance-none"
+                    className="w-full px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all text-sm"
                   >
                     <option value="Hoạt động">Hoạt động</option>
                     <option value="Không hoạt động">Không hoạt động</option>
@@ -773,16 +823,16 @@ const MemberListPage = () => {
 
                 {/* Address */}
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
                     Địa chỉ <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     name="address"
-                    rows={3}
+                    rows={2}
                     value={formData.address}
                     onChange={handleFormChange}
                     placeholder="Nhập địa chỉ..."
-                    className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] outline-none resize-none transition-all text-base sm:text-sm appearance-none"
+                    className="w-full px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none resize-none transition-all text-sm"
                   />
                 </div>
               </div>

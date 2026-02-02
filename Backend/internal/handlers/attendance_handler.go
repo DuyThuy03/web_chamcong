@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	
 	"attendance-system/internal/middleware"
 	"attendance-system/internal/services"
 	"attendance-system/internal/utils"
@@ -30,6 +29,7 @@ type CheckInRequest struct {
     Address   string  `form:"address"`
     Device    string  `form:"device" binding:"required"`
     ShiftID   int     `form:"shift_id" binding:"required"`
+    Accuracy  float64 `form:"accuracy"` // Optional or required? User said "receive more accuracy", implying it exists. Let's make it form field.
 }
 type CheckOutRequest struct {
     Latitude  float64 `form:"latitude" binding:"required"`
@@ -37,6 +37,7 @@ type CheckOutRequest struct {
     Address   string  `form:"address"`
     Device    string  `form:"device" binding:"required"`
     ShiftID   int     `form:"shift_id" binding:"required"`
+    Accuracy  float64 `form:"accuracy"`
 }
 
 func (h *AttendanceHandler) CheckIn(c *gin.Context) {
@@ -78,6 +79,7 @@ func (h *AttendanceHandler) CheckIn(c *gin.Context) {
         header.Filename,
         req.Latitude,
         req.Longitude,
+        req.Accuracy,
         req.Address,
         req.Device,
         req.ShiftID,
@@ -121,6 +123,7 @@ func (h *AttendanceHandler) CheckOut(c *gin.Context) {
         header.Filename,
         req.Latitude,
         req.Longitude,
+        req.Accuracy,
         req.Address,
         req.Device,
         req.ShiftID,
