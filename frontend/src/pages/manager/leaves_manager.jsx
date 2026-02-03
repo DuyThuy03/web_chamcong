@@ -257,7 +257,7 @@ const LeavesHeadPage = () => {
           <div className="flex flex-wrap gap-2">
             <div className="flex items-center gap-2 mr-2 mb-1 w-full sm:w-auto">
               <Filter size={16} className="text-[var(--text-secondary)] shrink-0" />
-              <span className="text-sm font-medium text-[var(--text-secondary)] sm:hidden">
+              <span className="text-sm font-medium text-black sm:hidden">
                 Lọc theo trạng thái:
               </span>
             </div>
@@ -272,7 +272,7 @@ const LeavesHeadPage = () => {
                 onClick={() => handleFilterChange(tab.key)}
                 className={`flex-1 sm:flex-none px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex items-center justify-center gap-2 rounded-md border active:scale-95 ${
                   filterStatus === tab.key
-                    ? `bg-[var(--accent-color)] text-white border-[var(--accent-color)] shadow-md hover:shadow-lg transform scale-105 hover:-translate-y-0.5`
+                    ? `bg-[var(--accent-color)] text-black border-[var(--accent-color)] shadow-md hover:shadow-lg transform scale-105 hover:-translate-y-0.5`
                     : "text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] border-transparent hover:border-[var(--accent-color)] hover:text-[var(--accent-color)] hover:shadow-md hover:-translate-y-0.5"
                 }`}
               >
@@ -280,7 +280,7 @@ const LeavesHeadPage = () => {
                 <span
                   className={`ml-2 px-1.5 py-0.5 text-xs rounded-full transition-colors ${
                     filterStatus === tab.key
-                      ? "bg-white/20 text-white"
+                      ? "bg-white/20 text-black"
                       : "bg-gray-200 text-gray-600 group-hover:bg-gray-300"
                   }`}
                 >

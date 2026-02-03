@@ -8,10 +8,11 @@ import {
   Eye, 
   Filter, 
   Clock, 
-  MapPin, 
+  User, 
+  Briefcase, 
+  Search, 
   X,
-  Search,
-  CalendarDays,
+  CheckCircle2,
   Loader2
 } from "lucide-react";
 import { formatDate, formatTime } from "../../until/helper"; // Ensure path is correct
@@ -78,20 +79,20 @@ const HistoryPage = () => {
   };
 
   const getWorkStatusBadge = (status) => {
-    const configs = {
-      ON_TIME: { label: "Đúng giờ", classes: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-      LATE: { label: "Đi muộn", classes: "bg-amber-100 text-amber-700 border-amber-200" },
-      ABSENT: { label: "Vắng mặt", classes: "bg-rose-100 text-rose-700 border-rose-200" },
-      DEFAULT: { label: status, classes: "bg-slate-100 text-slate-700 border-slate-200" }
+    const map = {
+        ON_TIME: ["Đúng giờ", "bg-green-50 text-green-700 border-green-200 ring-green-600/20"],
+        LATE: ["Đi muộn", "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20"],
+        ABSENT: ["Vắng mặt", "bg-red-50 text-red-700 border-red-200 ring-red-600/20"],
     };
 
-    const config = configs[status] || configs.DEFAULT;
+    if (!map[status]) return null;
 
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${config.classes} inline-flex items-center gap-1`}>
-         <span className={`w-1.5 h-1.5 rounded-full ${status === 'ON_TIME' ? 'bg-emerald-500' : status === 'LATE' ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
-         {config.label}
-      </span>
+        <span
+            className={`px-3 py-1 rounded-full text-xs font-semibold border ring-1 ring-inset ${map[status][1]}`}
+        >
+            {map[status][0]}
+        </span>
     );
   };
 
@@ -99,51 +100,51 @@ const HistoryPage = () => {
     <div className="min-h-[100dvh] bg-[var(--bg-primary)] px-4 pt-[calc(1rem_+_env(safe-area-inset-top))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] space-y-4 font-sans max-w-7xl mx-auto transition-colors duration-200">
       
       {/* Header Section */}
-      <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors duration-300">
-        <div>
-           <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)] uppercase tracking-tight flex items-center gap-2">
-              <div className="p-1.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-md">
-                <CalendarDays size={20} className="text-[var(--accent-color)]" />
-              </div>
-              Lịch sử chấm công
-           </h1>
-           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1 ml-10">Theo dõi chi tiết thời gian làm việc của bạn</p>
+      <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] px-4 md:px-6 py-4 rounded-lg shadow-sm transition-colors duration-200">
+        <div className="">
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+             <div className="p-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md">
+                <Clock className="text-[var(--accent-color)]" size={24} />
+             </div>
+            LỊCH SỬ CHẤM CÔNG
+          </h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1 ml-12">
+            Theo dõi chi tiết thời gian làm việc của bạn
+          </p>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Filters Card */}
-        <div className="bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-color)] p-4 transition-colors duration-300">
-          <div className="flex items-center gap-2 mb-3 text-[var(--text-primary)] font-bold text-sm uppercase">
-              <Filter size={16} className="text-[var(--accent-color)]" />
-              <h3>Bộ lọc tìm kiếm</h3>
+      <div className="max-w-7xl mx-auto px-0 py-0 space-y-4">
+        {/* Filter Section */}
+        <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6 transition-colors duration-200">
+          <div className="flex items-center gap-2 mb-4 border-b border-[var(--border-color)] pb-2 text-[var(--text-primary)] font-semibold">
+            <Filter size={18} className="text-[var(--accent-color)]" />
+            <h2 className="uppercase tracking-wider text-sm">Bộ lọc tìm kiếm</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">Từ ngày</label>
+              <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide ml-1 mb-1 block">Từ ngày</label>
               <div className="relative">
                  <input
                   type="date"
                   name="from_date"
                   value={filters.from_date}
                   onChange={handleFilterChange}
-                  className="w-full pl-9 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md focus:ring-1 focus:ring-[var(--accent-color)] focus:outline-none transition-all text-[var(--text-primary)] text-base sm:text-sm appearance-none"
+                  className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition-all text-[var(--text-primary)] text-base sm:text-sm appearance-none"
                 />
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={16} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">Đến ngày</label>
+              <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide ml-1 mb-1 block">Đến ngày</label>
               <div className="relative">
                 <input
                   type="date"
                   name="to_date"
                   value={filters.to_date}
                   onChange={handleFilterChange}
-                   className="w-full pl-9 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md focus:ring-1 focus:ring-[var(--accent-color)] focus:outline-none transition-all text-[var(--text-primary)] text-base sm:text-sm appearance-none"
+                   className="w-full px-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition-all text-[var(--text-primary)] text-base sm:text-sm appearance-none"
                 />
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={16} />
               </div>
             </div>
           </div>
@@ -171,12 +172,11 @@ const HistoryPage = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[var(--bg-primary)] border-b-2 border-slate-600 [.light_&]:border-slate-200 sticky top-0 z-10 text-xs font-bold text-white [.light_&]:text-gray-700 uppercase tracking-wider">
-                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Ngày làm việc</th>
-                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Ca làm việc</th>
-                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Giờ vào (Check-in)</th>
-                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Giờ ra (Check-out)</th>
-                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200 text-center">Trạng thái</th>
-                      <th className="px-4 py-3 text-right">Chi tiết</th>
+                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Ngày</th>
+                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Trạng thái</th>
+                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Địa điểm</th>
+                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Ghi chú</th>
+                      <th className="px-4 py-3 text-right">Hành động</th>
                     </tr>
                   </thead>
 
@@ -196,20 +196,30 @@ const HistoryPage = () => {
                               </div>
                           </div>
                         </td>
+                        
                         <td className="px-4 py-3 border-r border-[var(--border-color)]">
-                            <span className="font-medium text-[var(--text-primary)] bg-[var(--bg-primary)] border border-[var(--border-color)] px-2 py-1 rounded-md text-xs">
-                                {r.shift_name || "Mặc định"}
-                            </span>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-sm text-[var(--text-secondary)] border-r border-[var(--border-color)]">
-                          {r.checkin_time ? formatTime(r.checkin_time) : <span className="text-[var(--text-secondary)] opacity-50">--:--</span>}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-sm text-[var(--text-secondary)] border-r border-[var(--border-color)]">
-                          {r.checkout_time ? formatTime(r.checkout_time) : <span className="text-[var(--text-secondary)] opacity-50">--:--</span>}
-                        </td>
-                        <td className="px-4 py-3 text-center border-r border-[var(--border-color)]">
                           {r.work_status && getWorkStatusBadge(r.work_status)}
                         </td>
+
+                        <td className="px-4 py-3 border-r border-[var(--border-color)]">
+                            {r.checkin_type === 'FACTORY' ? (
+                                <div className="flex flex-col">
+                                    <span className="text-indigo-600 uppercase text-[10px] font-bold">Nhà máy</span>
+                                    <span className="text-[var(--text-primary)] text-xs font-bold">{r.factory_name}</span>
+                                </div>
+                            ) : (
+                                <span className="text-blue-600 uppercase text-[10px] font-bold">Văn phòng</span>
+                            )}
+                        </td>
+
+                        <td className="px-4 py-3 text-sm text-[var(--text-secondary)] border-r border-[var(--border-color)] max-w-[200px] truncate" title={r.note}>
+                            {r.note ? (
+                                <span className="text-[var(--text-primary)] italic">{r.note}</span>
+                            ) : (
+                                <span className="text-[var(--text-secondary)] opacity-50">-</span>
+                            )}
+                        </td>
+
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => setSelectedRecord(r)}
@@ -237,7 +247,13 @@ const HistoryPage = () => {
                            </div>
                            <div>
                               <p className="font-bold text-[var(--text-primary)] text-sm">{formatDate(r.day)}</p>
-                              <p className="text-xs text-[var(--text-secondary)] mt-0.5">{r.shift_name || "Ca chưa xác định"}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {r.checkin_type === 'FACTORY' ? (
+                                    <span className="text-indigo-600 text-[10px] font-bold uppercase border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 rounded">Nhà máy</span>
+                                ) : (
+                                    <span className="text-blue-600 text-[10px] font-bold uppercase border border-blue-200 bg-blue-50 px-1.5 py-0.5 rounded">Văn phòng</span>
+                                )}
+                              </div>
                            </div>
                         </div>
                         {r.work_status && getWorkStatusBadge(r.work_status)}
@@ -257,6 +273,12 @@ const HistoryPage = () => {
                            </p>
                         </div>
                      </div>
+                     
+                     {r.note && (
+                        <div className="px-3 py-2 bg-[var(--bg-primary)] rounded-md border border-[var(--border-color)] text-xs italic text-[var(--text-secondary)]">
+                            "{r.note}"
+                        </div>
+                     )}
 
                      <button
                       onClick={() => setSelectedRecord(r)}
@@ -328,133 +350,128 @@ const HistoryPage = () => {
 
       {/* Detail Modal */}
       {selectedRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-             className="absolute inset-0 bg-black/60 backdrop-blur-[1px] transition-opacity" 
-             onClick={() => setSelectedRecord(null)}
-          ></div>
-          
-          <div className="relative bg-[var(--bg-secondary)] rounded-lg shadow-xl border border-[var(--border-color)] max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-[var(--bg-secondary)] z-10 px-6 py-4 border-b border-[var(--border-color)] flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-tight">Chi tiết chấm công</h2>
-                <p className="text-xs text-[var(--text-secondary)] font-mono mt-0.5">{formatDate(selectedRecord.day)}</p>
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="relative w-full max-w-2xl bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[90vh]">
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+                      <div>
+                          <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                              <span className="w-8 h-8 rounded-full bg-[var(--accent-color)] text-white flex items-center justify-center text-sm">
+                                    {selectedRecord.user_name ? selectedRecord.user_name.charAt(0).toUpperCase() : <User size={14} />}
+                              </span>
+                              Chi tiết chấm công
+                          </h3>
+                          <p className="text-xs text-[var(--text-secondary)] mt-0.5 ml-10">
+                              {formatDate(selectedRecord.day)}
+                          </p>
+                      </div>
+                      <button
+                          onClick={() => setSelectedRecord(null)}
+                          className="p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] rounded-full transition-colors"
+                      >
+                          <X size={20} />
+                      </button>
+                  </div>
+
+                  {/* Modal Body - Scrollable if needed */}
+                  <div className="p-4 overflow-y-auto custom-scrollbar">
+                      {/* Status & Info Grid */}
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                          <div className="space-y-1">
+                              <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Trạng thái</p>
+                              <div>{getWorkStatusBadge(selectedRecord.work_status)}</div>
+                          </div>
+                          <div className="space-y-1">
+                              <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Địa điểm</p>
+                              {selectedRecord.checkin_type === 'FACTORY' ? (
+                                      <div className="font-bold text-indigo-500 text-sm">Nhà máy - {selectedRecord.factory_name}</div>
+                              ) : (
+                                      <div className="font-bold text-blue-500 text-sm">Văn phòng</div>
+                              )}
+                          </div>
+                          <div className="space-y-1 col-span-2">
+                                  <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Ca làm việc</p>
+                                  <p className="font-medium text-[var(--text-primary)] text-sm">{selectedRecord.shift_name || "Chưa phân ca"}</p>
+                          </div>
+                          {selectedRecord.note && (
+                              <div className="col-span-2 bg-[var(--bg-primary)] p-3 rounded-lg border border-[var(--border-color)]">
+                                  <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Ghi chú</p>
+                                  <p className="text-sm italic text-[var(--text-primary)]">"{selectedRecord.note}"</p>
+                              </div>
+                          )}
+                      </div>
+
+                      {/* Time & Images Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Check-in Column */}
+                          <div className="bg-[var(--bg-primary)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                              <div className="p-3 border-b border-[var(--border-color)] bg-emerald-500/5">
+                                  <div className="flex items-center justify-between">
+                                      <span className="text-xs font-bold text-emerald-600 uppercase">Input (Check-in)</span>
+                                      <span className="font-mono text-lg font-bold text-[var(--text-primary)]">
+                                          {selectedRecord.checkin_time ? formatTime(selectedRecord.checkin_time) : "--:--"}
+                                      </span>
+                                  </div>
+                              </div>
+                              <div className="p-3">
+                                  {selectedRecord.checkin_image ? (
+                                      <div 
+                                          className="aspect-video bg-black/50 rounded-lg overflow-hidden cursor-pointer group relative"
+                                          onClick={() => setViewingImage(selectedRecord.checkin_image)}
+                                      >
+                                          <img 
+                                              src={selectedRecord.checkin_image} 
+                                              alt="Checkin" 
+                                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                          />
+                                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                <Eye className="text-white opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300" />
+                                          </div>
+                                      </div>
+                                  ) : (
+                                      <div className="aspect-video bg-[var(--bg-secondary)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs border border-dashed border-[var(--border-color)]">
+                                          Không có ảnh
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+
+                          {/* Check-out Column */}
+                          <div className="bg-[var(--bg-primary)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                              <div className="p-3 border-b border-[var(--border-color)] bg-orange-500/5">
+                                  <div className="flex items-center justify-between">
+                                      <span className="text-xs font-bold text-orange-600 uppercase">Output (Check-out)</span>
+                                      <span className="font-mono text-lg font-bold text-[var(--text-primary)]">
+                                          {selectedRecord.checkout_time ? formatTime(selectedRecord.checkout_time) : "--:--"}
+                                      </span>
+                                  </div>
+                              </div>
+                              <div className="p-3">
+                                  {selectedRecord.checkout_image ? (
+                                      <div 
+                                          className="aspect-video bg-black/50 rounded-lg overflow-hidden cursor-pointer group relative"
+                                          onClick={() => setViewingImage(selectedRecord.checkout_image)}
+                                      >
+                                          <img 
+                                              src={selectedRecord.checkout_image} 
+                                              alt="Checkout" 
+                                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                          />
+                                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                <Eye className="text-white opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300" />
+                                          </div>
+                                      </div>
+                                  ) : (
+                                      <div className="aspect-video bg-[var(--bg-secondary)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs border border-dashed border-[var(--border-color)]">
+                                          Không có ảnh
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
               </div>
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="w-8 h-8 rounded-md bg-[var(--bg-primary)] border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-secondary)] transition-all active:scale-[0.85]"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
-               {/* Summary Info */}
-               <div className="flex flex-wrap gap-3">
-                  <div className="px-4 py-2 bg-[var(--bg-primary)] rounded-md border border-[var(--border-color)]">
-                     <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Ca làm việc</p>
-                     <p className="font-bold text-[var(--text-primary)] text-sm">{selectedRecord.shift_name || "N/A"}</p>
-                  </div>
-                  <div className="px-4 py-2 bg-[var(--bg-primary)] rounded-md border border-[var(--border-color)]">
-                     <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Trạng thái</p>
-                     <div className="mt-1">{selectedRecord.work_status && getWorkStatusBadge(selectedRecord.work_status)}</div>
-                  </div>
-               </div>
-
-               {/* Timeline Content */}
-               <div className="relative border-l-2 border-[var(--border-color)] pl-8 space-y-6 ml-3">
-                  
-                  {/* Check-in Node */}
-                  <div className="relative">
-                     <span className={`absolute -left-[39px] w-5 h-5 rounded-full border-4 border-[var(--bg-secondary)] shadow-sm ${selectedRecord.checkin_time ? 'bg-blue-500' : 'bg-[var(--border-color)]'}`}></span>
-                     
-                     <div className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-4 shadow-sm">
-                        <div className="flex justify-between items-start mb-3">
-                           <div>
-                              <h4 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-sm uppercase">
-                                 Check-in 
-                                 {selectedRecord.checkin_time && <span className="text-green-600 text-[10px] bg-green-50 px-2 py-0.5 rounded-full border border-green-200 uppercase font-bold">Thành công</span>}
-                              </h4>
-                              <p className="text-[var(--text-secondary)] text-xs flex items-center gap-1 mt-1 font-mono">
-                                 <Clock size={12} /> 
-                                 {selectedRecord.checkin_time ? formatTime(selectedRecord.checkin_time) : "Chưa ghi nhận"}
-                              </p>
-                           </div>
-                        </div>
-
-                        {selectedRecord.checkin_time && (
-                           <div className="space-y-3">
-                              {selectedRecord.checkin_address && (
-                                 <div className="text-xs bg-[var(--bg-secondary)] p-2 rounded-md flex gap-2 text-[var(--text-secondary)] border border-[var(--border-color)]">
-                                    <MapPin size={14} className="shrink-0 mt-0.5 text-blue-500" />
-                                    <span>{selectedRecord.checkin_address}</span>
-                                 </div>
-                              )}
-                              
-                              {selectedRecord.checkin_image && (
-                                 <div className="aspect-video w-full rounded-md overflow-hidden bg-[var(--bg-secondary)] border border-[var(--border-color)] relative group cursor-pointer" onClick={() => setViewingImage(selectedRecord.checkin_image)}>
-                                    <img src={selectedRecord.checkin_image} alt="Check-in Evidence" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                       <Eye className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" size={24} />
-                                    </div>
-                                 </div>
-                              )}
-                           </div>
-                        )}
-                     </div>
-                  </div>
-
-                  {/* Check-out Node */}
-                  <div className="relative">
-                     <span className={`absolute -left-[39px] w-5 h-5 rounded-full border-4 border-[var(--bg-secondary)] shadow-sm ${selectedRecord.checkout_time ? 'bg-purple-500' : 'bg-[var(--border-color)]'}`}></span>
-                     
-                     <div className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-4 shadow-sm">
-                        <div className="flex justify-between items-start mb-3">
-                           <div>
-                              <h4 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-sm uppercase">
-                                 Check-out
-                                 {selectedRecord.checkout_time && <span className="text-green-600 text-[10px] bg-green-50 px-2 py-0.5 rounded-full border border-green-200 uppercase font-bold">Thành công</span>}
-                              </h4>
-                              <p className="text-[var(--text-secondary)] text-xs flex items-center gap-1 mt-1 font-mono">
-                                 <Clock size={12} /> 
-                                 {selectedRecord.checkout_time ? formatTime(selectedRecord.checkout_time) : "Chưa ghi nhận"}
-                              </p>
-                           </div>
-                        </div>
-
-                         {selectedRecord.checkout_time && (
-                           <div className="space-y-3">
-                              {selectedRecord.checkout_address && (
-                                 <div className="text-xs bg-[var(--bg-secondary)] p-2 rounded-md flex gap-2 text-[var(--text-secondary)] border border-[var(--border-color)]">
-                                    <MapPin size={14} className="shrink-0 mt-0.5 text-purple-500" />
-                                    <span>{selectedRecord.checkout_address}</span>
-                                 </div>
-                              )}
-                              
-                              {selectedRecord.checkout_image && (
-                                 <div className="aspect-video w-full rounded-md overflow-hidden bg-[var(--bg-secondary)] border border-[var(--border-color)] relative group cursor-pointer" onClick={() => setViewingImage(selectedRecord.checkout_image)}>
-                                    <img src={selectedRecord.checkout_image} alt="Check-out Evidence" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                       <Eye className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" size={24} />
-                                    </div>
-                                 </div>
-                              )}
-                           </div>
-                        )}
-                     </div>
-                  </div>
-
-               </div>
-            </div>
-            
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-[var(--bg-primary)] border-t border-[var(--border-color)] text-center rounded-b-lg">
-               <button onClick={() => setSelectedRecord(null)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-bold text-xs uppercase transition-colors">Đóng</button>
-            </div>
           </div>
-        </div>
       )}
 
       {/* Full Screen Image Viewer */}

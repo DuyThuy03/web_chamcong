@@ -55,12 +55,13 @@ func (r *AttendanceRepository) Create(checkIO *models.CheckIO) error {
     return r.db.QueryRow(`
         INSERT INTO CheckIO (user_id, day, checkin_time, checkin_image, 
                             checkin_latitude, checkin_longitude, checkin_address,
-                            device, shift_id, work_status, leave_status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                            device, shift_id, work_status, leave_status, checkin_type, factory_name, note)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
     `, checkIO.UserID, checkIO.Day, checkIO.CheckinTime, checkIO.CheckinImage,
         checkIO.CheckinLatitude, checkIO.CheckinLongitude, checkIO.CheckinAddress,
         checkIO.Device, checkIO.ShiftID, checkIO.WorkStatus, checkIO.LeaveStatus,
+        checkIO.CheckinType, checkIO.FactoryName, checkIO.Note,
     ).Scan(&checkIO.ID)
 }
 
@@ -73,15 +74,15 @@ func (r *AttendanceRepository) Update(checkIO *models.CheckIO) error {
             checkout_latitude = $7, checkout_longitude = $8,
             checkin_address = $9, checkout_address = $10,
             device = $11, shift_id = $12, work_status = $13,
-            leave_status = $14, updated_at = NOW()
-        WHERE id = $15
+            leave_status = $14, checkin_type = $15, factory_name = $16, note = $17, updated_at = NOW()
+        WHERE id = $18
     `, checkIO.CheckinTime, checkIO.CheckoutTime,
         checkIO.CheckinImage, checkIO.CheckoutImage,
         checkIO.CheckinLatitude, checkIO.CheckinLongitude,
         checkIO.CheckoutLatitude, checkIO.CheckoutLongitude,
         checkIO.CheckinAddress, checkIO.CheckoutAddress,
         checkIO.Device, checkIO.ShiftID, checkIO.WorkStatus,
-        checkIO.LeaveStatus, checkIO.ID)
+        checkIO.LeaveStatus, checkIO.CheckinType, checkIO.FactoryName, checkIO.Note, checkIO.ID)
     return err
 }
 
@@ -91,7 +92,7 @@ func (r *AttendanceRepository) GetByUserAndDay(userID int, day time.Time) (*mode
         SELECT id, user_id, day, checkin_time, checkout_time,
                checkin_image, checkout_image, checkin_latitude, checkin_longitude,
                checkout_latitude, checkout_longitude, checkin_address, checkout_address,
-               device, shift_id, work_status, leave_status, created_at
+               device, shift_id, work_status, leave_status, checkin_type, factory_name, note, created_at
         FROM CheckIO WHERE user_id = $1 AND day = $2
     `, userID, day).Scan(
         &checkIO.ID, &checkIO.UserID, &checkIO.Day,
@@ -101,7 +102,7 @@ func (r *AttendanceRepository) GetByUserAndDay(userID int, day time.Time) (*mode
         &checkIO.CheckoutLatitude, &checkIO.CheckoutLongitude,
         &checkIO.CheckinAddress, &checkIO.CheckoutAddress,
         &checkIO.Device, &checkIO.ShiftID, &checkIO.WorkStatus,
-        &checkIO.LeaveStatus, &checkIO.CreatedAt,
+        &checkIO.LeaveStatus, &checkIO.CheckinType, &checkIO.FactoryName, &checkIO.Note, &checkIO.CreatedAt,
     )
     
     if err == sql.ErrNoRows {
@@ -122,7 +123,7 @@ func (r *AttendanceRepository) GetByID(id int) (*models.CheckIOResponse, error) 
                c.checkout_latitude, c.checkout_longitude,
                c.checkin_address, c.checkout_address,
                c.device, c.shift_id, s.name as shift_name,
-               c.work_status, c.leave_status
+               c.work_status, c.leave_status, c.checkin_type, c.factory_name, c.note
         FROM CheckIO c
         JOIN users u ON c.user_id = u.id
         LEFT JOIN department d ON u.department_id = d.id
@@ -136,7 +137,7 @@ func (r *AttendanceRepository) GetByID(id int) (*models.CheckIOResponse, error) 
         &resp.CheckoutLatitude, &resp.CheckoutLongitude,
         &resp.CheckinAddress, &resp.CheckoutAddress,
         &resp.Device, &resp.ShiftID, &resp.ShiftName,
-        &resp.WorkStatus, &resp.LeaveStatus,
+        &resp.WorkStatus, &resp.LeaveStatus, &resp.CheckinType, &resp.FactoryName, &resp.Note,
     )
     
     if err != nil {
@@ -173,7 +174,7 @@ func (r *AttendanceRepository) GetHistory(
                c.day, c.checkin_time, c.checkout_time,
                c.checkin_image, c.checkout_image,
                c.shift_id, s.name as shift_name,
-               c.work_status, c.leave_status
+               c.work_status, c.leave_status, c.checkin_type, c.factory_name, c.note
         FROM CheckIO c
         JOIN users u ON c.user_id = u.id
         LEFT JOIN department d ON u.department_id = d.id
@@ -237,7 +238,7 @@ func (r *AttendanceRepository) GetHistory(
             &resp.Day, &resp.CheckinTime, &resp.CheckoutTime,
             &resp.CheckinImage, &resp.CheckoutImage,
             &resp.ShiftID, &resp.ShiftName,
-            &resp.WorkStatus, &resp.LeaveStatus,
+            &resp.WorkStatus, &resp.LeaveStatus, &resp.CheckinType, &resp.FactoryName, &resp.Note,
         )
         if err != nil {
             return nil, 0, err
@@ -280,7 +281,8 @@ func (r *AttendanceRepository) GetTodayAttendanceByDepartment(departmentID int, 
 			c.shift_id,
 			s.name as shift_name,
 			c.work_status,
-			c.leave_status
+			c.leave_status,
+            c.checkin_type, c.factory_name, c.note
 		FROM users u
 		LEFT JOIN department d ON u.department_id = d.id
 		LEFT JOIN CheckIO c ON u.id = c.user_id AND c.day = $1::date
@@ -315,6 +317,7 @@ func (r *AttendanceRepository) GetTodayAttendanceByDepartment(departmentID int, 
 			&resp.ShiftName,
 			&resp.WorkStatus,
 			&resp.LeaveStatus,
+            &resp.CheckinType, &resp.FactoryName, &resp.Note,
 		)
 		if err != nil {
 			return nil, err
@@ -365,7 +368,8 @@ func (r *AttendanceRepository) GetTodayAttendanceAll(today string) ([]*models.Ch
 			c.shift_id,
 			s.name as shift_name,
 			c.work_status,
-			c.leave_status
+			c.leave_status,
+            c.checkin_type, c.factory_name, c.note
 		FROM users u
 		LEFT JOIN department d ON u.department_id = d.id
 		LEFT JOIN CheckIO c ON u.id = c.user_id AND c.day = $1::date
@@ -400,6 +404,7 @@ func (r *AttendanceRepository) GetTodayAttendanceAll(today string) ([]*models.Ch
 			&resp.ShiftName,
 			&resp.WorkStatus,
 			&resp.LeaveStatus,
+            &resp.CheckinType, &resp.FactoryName, &resp.Note,
 		)
 		if err != nil {
 			return nil, err

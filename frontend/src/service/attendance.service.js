@@ -1,7 +1,7 @@
 import api from "./api";
 
 export const attendanceService = {
-  async checkIn(imageFile, latitude, longitude, address, device, shiftId, accuracy) {
+  async checkIn(imageFile, latitude, longitude, address, device, shiftId, accuracy, checkinType, factoryName, note) {
     const formData = new FormData();
     formData.append("image", imageFile);
     formData.append("latitude", latitude);
@@ -10,6 +10,9 @@ export const attendanceService = {
     formData.append("device", device);
     formData.append("shift_id", shiftId);
     if (accuracy) formData.append("accuracy", accuracy);
+    if (checkinType) formData.append("checkin_type", checkinType);
+    if (factoryName) formData.append("factory_name", factoryName);
+    if (note) formData.append("note", note);
 
     const response = await api.post("/attendance/checkin", formData, {
       headers: {
@@ -21,7 +24,7 @@ export const attendanceService = {
     return response.data;
   },
 
-  async checkOut(imageFile, latitude, longitude, address, device, shiftId, accuracy) {
+  async checkOut(imageFile, latitude, longitude, address, device, shiftId, accuracy, checkinType, factoryName, note) {
     const formData = new FormData();
     formData.append("image", imageFile);
     formData.append("latitude", latitude);
@@ -30,6 +33,9 @@ export const attendanceService = {
     formData.append("device", device);
     formData.append("shift_id", shiftId);
     if (accuracy) formData.append("accuracy", accuracy);
+    if (checkinType) formData.append("checkin_type", checkinType);
+    if (factoryName) formData.append("factory_name", factoryName);
+    if (note) formData.append("note", note);
 
     const response = await api.post("/attendance/checkout", formData, {
       headers: {

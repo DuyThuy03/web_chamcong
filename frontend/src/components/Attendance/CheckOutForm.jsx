@@ -32,6 +32,11 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
   
   // Real-time duration tracking
   const [workedTime, setWorkedTime] = useState({ hours: 0, minutes: 0 });
+  
+  // New States
+  const [checkinType, setCheckinType] = useState("OFFICE");
+  const [factoryName, setFactoryName] = useState("");
+  const [note, setNote] = useState("");
 
   useEffect(() => {
     loadShifts();
@@ -41,6 +46,14 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
     
     // Update worked time every minute
     const interval = setInterval(calculateWorkedTime, 60000);
+    
+    // Set defaults from checkInData
+    if (checkInData) {
+        if (checkInData.checkin_type) setCheckinType(checkInData.checkin_type);
+        if (checkInData.factory_name) setFactoryName(checkInData.factory_name);
+        if (checkInData.note) setNote(checkInData.note);
+    }
+
     return () => clearInterval(interval);
   }, [checkInData]);
 
@@ -112,6 +125,10 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
     if (!photo) return setError('Vui lòng chụp ảnh xác thực');
     if (!location) return setError('Vui lòng cập nhật vị trí');
     if (!selectedShift) return setError('Vui lòng chọn ca làm việc');
+    
+    if (checkinType === "FACTORY" && !factoryName.trim()) {
+        return setError("Vui lòng nhập tên nhà máy");
+    }
 
     setLoading(true);
     setError('');
@@ -126,7 +143,10 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
         address,
         device,
         selectedShift,
-        location.accuracy
+        location.accuracy,
+        checkinType,
+        factoryName,
+        note
       );
 
       if (response.success) {
@@ -254,6 +274,65 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
             {/* 2. Info Section */}
             <div className="flex-1 flex flex-col gap-5 md:gap-6">
                 
+                {/* Checkin Type Selection */}
+                <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm">
+                    <label className="text-sm font-bold text-[var(--text-secondary)] mb-3 block">Loại hình Check-out</label>
+                    <div className="flex gap-2">
+                            <button
+                            type="button"
+                            disabled={!!checkInData?.checkin_type}
+                            onClick={() => setCheckinType("OFFICE")}
+                            className={`flex-1 py-2 px-4 rounded-md font-bold text-sm transition-all ${
+                                checkinType === "OFFICE"
+                                ? "bg-[var(--accent-color)] text-white shadow-md"
+                                : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
+                            } ${checkInData?.checkin_type ? 'cursor-not-allowed opacity-80' : ''}`}
+                            >
+                            Văn phòng
+                            </button>
+                            <button
+                            type="button"
+                            disabled={!!checkInData?.checkin_type}
+                            onClick={() => setCheckinType("FACTORY")}
+                            className={`flex-1 py-2 px-4 rounded-md font-bold text-sm transition-all ${
+                                checkinType === "FACTORY"
+                                ? "bg-[var(--accent-color)] text-white shadow-md"
+                                : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
+                            } ${checkInData?.checkin_type ? 'cursor-not-allowed opacity-80' : ''}`}
+                            >
+                            Nhà máy
+                            </button>
+                    </div>
+                    
+                    {checkinType === "FACTORY" && (
+                            <div className="mt-4 animate-in slide-in-from-top-2">
+                            <label className="text-sm font-bold text-[var(--text-secondary)] mb-1 block">Tên nhà máy *</label>
+                            <input 
+                                type="text"
+                                value={factoryName}
+                                disabled={!!checkInData?.factory_name}
+                                onChange={(e) => setFactoryName(e.target.value)}
+                                placeholder="Nhập tên nhà máy..."
+                                className={`w-full p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-md focus:ring-1 focus:ring-indigo-500 font-medium text-[var(--text-primary)] shadow-sm outline-none transition-all ${
+                                    checkInData?.factory_name ? 'cursor-not-allowed opacity-70' : ''
+                                }`}
+                            />
+                            </div>
+                    )}
+                        
+                        {/* Note Input */}
+                        <div className="mt-3">
+                        <label className="text-sm font-bold text-[var(--text-secondary)] mb-1 block">Ghi chú (Tùy chọn)</label>
+                            <input 
+                            type="text"
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            placeholder="Ghi chú thêm..."
+                            className="w-full p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-md focus:ring-1 focus:ring-[var(--accent-color)] font-medium text-[var(--text-primary)] shadow-sm outline-none transition-all"
+                        />
+                        </div>
+                </div>
+
                 {/* Location */}
                 <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-rose-500/30 transition-all group hover:shadow-md hover:-translate-y-0.5">
                     <div className="flex justify-between items-center mb-2">
@@ -302,26 +381,27 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
                     )}
                 </div>
 
-                {/* Shift */}
-                 <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-rose-500/30 transition-all hover:shadow-md hover:-translate-y-0.5">
-                   <label className="text-sm font-bold text-[var(--text-secondary)] mb-2 flex items-center gap-1.5">
-                     <Briefcase size={16} className="text-[var(--text-secondary)]" /> Ca làm việc *
-                   </label>
-                   <div className="relative">
-                     <select 
-                       value={selectedShift} 
-                       onChange={(e) => setSelectedShift(e.target.value)}
-                       className="w-full appearance-none bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] text-sm rounded-md focus:ring-1 focus:ring-rose-500 block p-3.5 pr-10 font-bold shadow-sm transition-all cursor-pointer truncate"
-                     >
-                       {shifts.map(s => (
-                         <option key={s.id} value={s.id}>{s.name} ({formatTime(s.start_time).slice(0,5)} - {formatTime(s.end_time).slice(0,5)})</option>
-                       ))}
-                     </select>
-                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[var(--text-secondary)]">
-                       <ChevronDown size={18} />
+                 {checkinType !== "FACTORY" && (
+                     <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-rose-500/30 transition-all hover:shadow-md hover:-translate-y-0.5">
+                       <label className="text-sm font-bold text-[var(--text-secondary)] mb-2 flex items-center gap-1.5">
+                         <Briefcase size={16} className="text-[var(--text-secondary)]" /> Ca làm việc *
+                       </label>
+                       <div className="relative">
+                         <select 
+                           value={selectedShift} 
+                           onChange={(e) => setSelectedShift(e.target.value)}
+                           className="w-full appearance-none bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] text-sm rounded-md focus:ring-1 focus:ring-rose-500 block p-3.5 pr-10 font-bold shadow-sm transition-all cursor-pointer truncate"
+                         >
+                           {shifts.map(s => (
+                             <option key={s.id} value={s.id}>{s.name} ({formatTime(s.start_time).slice(0,5)} - {formatTime(s.end_time).slice(0,5)})</option>
+                           ))}
+                         </select>
+                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[var(--text-secondary)]">
+                           <ChevronDown size={18} />
+                         </div>
+                       </div>
                      </div>
-                   </div>
-                 </div>
+                 )}
 
                  {/* Submit Button */}
                  <div className="mt-2 md:mt-auto pt-4 border-t border-[var(--border-color)] lg:border-none">

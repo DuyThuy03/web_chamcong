@@ -64,12 +64,35 @@ const CheckInForm = ({ onSuccess }) => {
   const [error, setError] = useState("");
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // New States for Checkin Type
+  const [checkinType, setCheckinType] = useState("OFFICE");
+  const [factoryName, setFactoryName] = useState("");
+  const [note, setNote] = useState("");
 
   useEffect(() => {
     loadShifts();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Update shift when checkinType changes
+  useEffect(() => {
+    if (checkinType === "FACTORY" && shifts.length > 0) {
+        // Try to find a shift with "sáng" or "morning" in the name (case insensitive)
+        const morningShift = shifts.find(s => 
+            s.name.toLowerCase().includes("sáng") || 
+            s.name.toLowerCase().includes("morning")
+        );
+        
+        if (morningShift) {
+            setSelectedShift(morningShift.id);
+        } else {
+            // Fallback to the first shift if no specific morning shift found
+            setSelectedShift(shifts[0].id);
+        }
+    }
+  }, [checkinType, shifts]);
 
   const loadShifts = async () => {
     try {
@@ -120,6 +143,10 @@ const CheckInForm = ({ onSuccess }) => {
     if (!photo) return setError("Vui lòng chụp ảnh xác thực");
     if (!location) return setError("Vui lòng cập nhật vị trí");
     if (!selectedShift) return setError("Vui lòng chọn ca làm việc");
+    
+    if (checkinType === "FACTORY" && !factoryName.trim()) {
+        return setError("Vui lòng nhập tên nhà máy");
+    }
 
     setLoading(true);
     setError("");
@@ -134,6 +161,9 @@ const CheckInForm = ({ onSuccess }) => {
         device,
         selectedShift,
         location.accuracy,
+        checkinType,
+        factoryName,
+        note
       );
       if (response.success && onSuccess) onSuccess(response.data);
     } catch (err) {
@@ -325,6 +355,61 @@ const CheckInForm = ({ onSuccess }) => {
 
                   {/* INPUT SECTION */}
                   <div className="flex-1 flex flex-col gap-6">
+                    
+                    {/* Checkin Type Selection */}
+                    <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm">
+                        <label className="text-sm font-bold text-[var(--text-secondary)] mb-3 block">Loại hình Check-in</label>
+                        <div className="flex gap-2">
+                             <button
+                                type="button"
+                                onClick={() => setCheckinType("OFFICE")}
+                                className={`flex-1 py-2 px-4 rounded-md font-bold text-sm transition-all ${
+                                    checkinType === "OFFICE"
+                                    ? "bg-[var(--accent-color)] text-black shadow-md"
+                                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-2 hover:border-[var(--accent-color)] hover:scale-110 hover:active:scale-95 hover:text-white"
+                                }`}
+                             >
+                                Văn phòng
+                             </button>
+                             <button
+                                type="button"
+                                onClick={() => setCheckinType("FACTORY")}
+                                className={`flex-1 py-2 px-4 rounded-md font-bold text-sm transition-all ${
+                                    checkinType === "FACTORY"
+                                    ? "bg-[var(--accent-color)] text-black shadow-md"
+                                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-2 hover:border-[var(--accent-color)] hover:scale-110 hover:active:scale-95 hover:text-white"
+                                }`}
+                             >
+                                Nhà máy
+                             </button>
+                        </div>
+                        
+                        {checkinType === "FACTORY" && (
+                             <div className="mt-4 animate-in slide-in-from-top-2">
+                                <label className="text-sm font-bold text-[var(--text-secondary)] mb-1 block">Tên nhà máy *</label>
+                                <input 
+                                    type="text"
+                                    value={factoryName}
+                                    onChange={(e) => setFactoryName(e.target.value)}
+                                    placeholder="Nhập tên nhà máy..."
+                                    className="w-full p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-md focus:ring-1 focus:ring-[var(--accent-color)] font-medium text-[var(--text-primary)] shadow-sm outline-none transition-all"
+                                />
+                             </div>
+                        )}
+                         
+                         {/* Note Input (Use for any checkin type, optional) */}
+                         <div className="mt-3">
+                            <label className="text-sm font-bold text-[var(--text-secondary)] mb-1 block">Ghi chú (Tùy chọn)</label>
+                             <input 
+                                type="text"
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                placeholder="Ghi chú thêm..."
+                                className="w-full p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-md focus:ring-1 focus:ring-[var(--accent-color)] font-medium text-[var(--text-primary)] shadow-sm outline-none transition-all"
+                            />
+                         </div>
+                    </div>
+
                     {/* Location Input */}
                     <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-[var(--accent-color)] transition-all group hover:shadow-md hover:-translate-y-0.5">
                       <div className="flex justify-between items-center mb-3">
@@ -381,67 +466,69 @@ const CheckInForm = ({ onSuccess }) => {
                       )}
                     </div>
 
-                    {/* Shift Input */}
-                    <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-[var(--accent-color)] transition-all hover:shadow-md hover:-translate-y-0.5">
-                      <label className="text-sm font-bold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
-                        <Briefcase size={18} className="text-indigo-500" /> Chọn
-                        ca làm việc *
-                      </label>
+                      {/* Shift Input - Hidden for FACTORY checkin */}
+                    {checkinType !== "FACTORY" && (
+                        <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-[var(--accent-color)] transition-all hover:shadow-md hover:-translate-y-0.5">
+                        <label className="text-sm font-bold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
+                            <Briefcase size={18} className="text-indigo-500" /> Chọn
+                            ca làm việc *
+                        </label>
 
-                      <div className="relative mb-4">
-                        <select
-                          value={selectedShift}
-                          onChange={(e) => setSelectedShift(e.target.value)}
-                          className="w-full appearance-none bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] text-base rounded-md focus:ring-1 focus:ring-[var(--accent-color)] block p-3 pr-10 font-bold shadow-sm transition-all cursor-pointer"
-                        >
-                          {shifts.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} ({formatTime(s.start_time).slice(0, 5)} -{" "}
-                              {formatTime(s.end_time).slice(0, 5)})
-                            </option>
-                          ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[var(--text-secondary)]">
-                          <ChevronDown size={20} />
-                        </div>
-                      </div>
-
-                      {/* Shift Details Preview */}
-                      {currentShiftDetails && shiftStatus && (
-                        <div
-                          className={`p-4 rounded-lg border flex justify-between items-center ${shiftStatus.bg}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`p-2 rounded-lg bg-white/50 ${shiftStatus.color}`}
+                        <div className="relative mb-4">
+                            <select
+                            value={selectedShift}
+                            onChange={(e) => setSelectedShift(e.target.value)}
+                            className="w-full appearance-none bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] text-base rounded-md focus:ring-1 focus:ring-[var(--accent-color)] block p-3 pr-10 font-bold shadow-sm transition-all cursor-pointer"
                             >
-                              <Clock size={20} />
+                            {shifts.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                {s.name} ({formatTime(s.start_time).slice(0, 5)} -{" "}
+                                {formatTime(s.end_time).slice(0, 5)})
+                                </option>
+                            ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[var(--text-secondary)]">
+                            <ChevronDown size={20} />
                             </div>
-                            <div>
-                              <p
-                                className={`text-xs font-bold uppercase ${shiftStatus.color}`}
-                              >
-                                Trạng thái
-                              </p>
-                              <p className="text-sm font-bold text-slate-800">
-                                {shiftStatus.text}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-slate-500 font-bold uppercase">
-                              Giờ vào
-                            </p>
-                            <p className="text-lg font-mono font-bold text-slate-800">
-                              {formatTime(currentShiftDetails.start_time).slice(
-                                0,
-                                5,
-                              )}
-                            </p>
-                          </div>
                         </div>
-                      )}
-                    </div>
+
+                        {/* Shift Details Preview */}
+                        {currentShiftDetails && shiftStatus && (
+                            <div
+                            className={`p-4 rounded-lg border flex justify-between items-center ${shiftStatus.bg}`}
+                            >
+                            <div className="flex items-center gap-3">
+                                <div
+                                className={`p-2 rounded-lg bg-white/50 ${shiftStatus.color}`}
+                                >
+                                <Clock size={20} />
+                                </div>
+                                <div>
+                                <p
+                                    className={`text-xs font-bold uppercase ${shiftStatus.color}`}
+                                >
+                                    Trạng thái
+                                </p>
+                                <p className="text-sm font-bold text-slate-800">
+                                    {shiftStatus.text}
+                                </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-slate-500 font-bold uppercase">
+                                Giờ vào
+                                </p>
+                                <p className="text-lg font-mono font-bold text-slate-800">
+                                {formatTime(currentShiftDetails.start_time).slice(
+                                    0,
+                                    5,
+                                )}
+                                </p>
+                            </div>
+                            </div>
+                        )}
+                        </div>
+                    )}
 
                     {/* Action Button */}
                     <div className="mt-auto">

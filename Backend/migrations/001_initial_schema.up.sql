@@ -135,3 +135,16 @@ FROM users u
 LEFT JOIN CheckIO c ON u.id = c.user_id
 LEFT JOIN department d ON u.department_id = d.id
 GROUP BY u.id, u.name, u.department_id, d.name, DATE_TRUNC('month', c.day);
+
+ALTER TABLE checkio
+ADD COLUMN factory_name TEXT;
+
+ALTER TABLE checkio
+ADD COLUMN note TEXT;
+
+ALTER TABLE checkio
+ADD COLUMN checkin_type TEXT DEFAULT 'OFFICE';
+
+ALTER TABLE checkio
+ADD CONSTRAINT ck_checkio_checkin_type
+CHECK (checkin_type IN ('OFFICE', 'FACTORY'));

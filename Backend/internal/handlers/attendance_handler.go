@@ -24,20 +24,26 @@ func NewAttendanceHandler(attendanceService *services.AttendanceService) *Attend
 }
 
 type CheckInRequest struct {
-    Latitude  float64 `form:"latitude" binding:"required"`
-    Longitude float64 `form:"longitude" binding:"required"`
-    Address   string  `form:"address"`
-    Device    string  `form:"device" binding:"required"`
-    ShiftID   int     `form:"shift_id" binding:"required"`
-    Accuracy  float64 `form:"accuracy"` // Optional or required? User said "receive more accuracy", implying it exists. Let's make it form field.
+    Latitude    float64 `form:"latitude" binding:"required"`
+    Longitude   float64 `form:"longitude" binding:"required"`
+    Address     string  `form:"address"`
+    Device      string  `form:"device" binding:"required"`
+    ShiftID     int     `form:"shift_id" binding:"required"`
+    Accuracy    float64 `form:"accuracy"`
+    FactoryName string  `form:"factory_name"`
+    Note        string  `form:"note"`
+    CheckinType string  `form:"checkin_type"`
 }
 type CheckOutRequest struct {
-    Latitude  float64 `form:"latitude" binding:"required"`
-    Longitude float64 `form:"longitude" binding:"required"`
-    Address   string  `form:"address"`
-    Device    string  `form:"device" binding:"required"`
-    ShiftID   int     `form:"shift_id" binding:"required"`
-    Accuracy  float64 `form:"accuracy"`
+    Latitude    float64 `form:"latitude" binding:"required"`
+    Longitude   float64 `form:"longitude" binding:"required"`
+    Address     string  `form:"address"`
+    Device      string  `form:"device" binding:"required"`
+    ShiftID     int     `form:"shift_id" binding:"required"`
+    Accuracy    float64 `form:"accuracy"`
+    FactoryName string  `form:"factory_name"`
+    Note        string  `form:"note"`
+    CheckinType string  `form:"checkin_type"`
 }
 
 func (h *AttendanceHandler) CheckIn(c *gin.Context) {
@@ -83,6 +89,9 @@ func (h *AttendanceHandler) CheckIn(c *gin.Context) {
         req.Address,
         req.Device,
         req.ShiftID,
+        req.CheckinType,
+        req.FactoryName,
+        req.Note,
     )
 
     if err != nil {
@@ -127,6 +136,9 @@ func (h *AttendanceHandler) CheckOut(c *gin.Context) {
         req.Address,
         req.Device,
         req.ShiftID,
+        req.CheckinType,
+        req.FactoryName,
+        req.Note,
     )
 
 

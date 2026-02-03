@@ -1,8 +1,8 @@
 package models
 
 import (
-    "database/sql"
-    "time"
+	"database/sql"
+	"time"
 )
 
 type CheckIO struct {
@@ -22,7 +22,10 @@ type CheckIO struct {
     Device             sql.NullString  `json:"device,omitempty"`
     ShiftID            sql.NullInt64   `json:"shift_id,omitempty"`
     WorkStatus         sql.NullString  `json:"work_status,omitempty"`
-    LeaveStatus        sql.NullString          `json:"leave_status"`
+    LeaveStatus        sql.NullString  `json:"leave_status"`
+    FactoryName        sql.NullString  `json:"factory_name,omitempty"`
+    Note               sql.NullString  `json:"note,omitempty"`
+    CheckinType        sql.NullString  `json:"checkin_type,omitempty"`
     CreatedAt          time.Time       `json:"created_at"`
     UpdatedAt          time.Time       `json:"updated_at"`
 }
@@ -48,6 +51,9 @@ type CheckIOResponse struct {
     ShiftName          *string    `json:"shift_name,omitempty"`
     WorkStatus         *string    `json:"work_status,omitempty"`
     LeaveStatus         sql.NullString      `json:"leave_status"`
+    FactoryName        *string    `json:"factory_name,omitempty"`
+    Note               *string    `json:"note,omitempty"`
+    CheckinType        *string    `json:"checkin_type,omitempty"`
     DistanceFromOffice *float64   `json:"distance_from_office,omitempty"`
 }
 type TodayAttendanceResponse struct {
@@ -71,6 +77,9 @@ type AttendanceHistoryResponse struct {
 	WorkStatus   *string    `json:"work_status,omitempty"`
 	LeaveStatus  sql.NullString     `json:"leave_status"`
 	ShiftName    *string    `json:"shift_name,omitempty"`
+    FactoryName  *string    `json:"factory_name,omitempty"`
+    Note         *string    `json:"note,omitempty"`
+    CheckinType  *string    `json:"checkin_type,omitempty"`
 }
 
 type AttendanceHistoryFilter struct {

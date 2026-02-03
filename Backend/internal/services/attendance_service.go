@@ -65,9 +65,17 @@ func (s *AttendanceService) CheckIn(
     latitude, longitude, accuracy float64,
     address, device string,
     shiftID int,
+    checkinType string,
+    factoryName string,
+    note string,
 ) (*models.CheckIOResponse, error) {
     now := time.Now()
     today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+
+    // Set default checkin type if empty
+    if checkinType == "" {
+        checkinType = "OFFICE"
+    }
 
     // Check if already checked in today
     existing, err := s.repo.GetByUserAndDay(userID, today)
@@ -79,12 +87,22 @@ func (s *AttendanceService) CheckIn(
         return nil, errors.New("đã check-in hôm nay")
     }
 
-    // Validate location
-    isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
-    if !isValid {
-        return nil, fmt.Errorf("vị trí check-in ngoài phạm vi cho phép (%.0fm từ văn phòng)", distance)
+    // Logic based on Checkin Type
+    if checkinType == "FACTORY" {
+        if factoryName == "" {
+             return nil, errors.New("tên nhà máy không được để trống khi check-in tại nhà máy")
+        }
+    } else {
+        // OFFICE (Default)
+        // Validate location
+        isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
+        if !isValid {
+            if distance == 0 {
+                 return nil, fmt.Errorf("Tín hiệu GPS yếu (Độ lệch: %.0fm > %.0fm). Vui lòng ra nơi thoáng hơn.", accuracy, s.locationService.accuracy)
+            }
+            return nil, fmt.Errorf("vị trí check-in ngoài phạm vi cho phép (%.0fm từ văn phòng)", distance)
+        }
     }
-
 
     // Process image with overlay
     overlayInfo := OverlayInfo{
@@ -102,7 +120,11 @@ func (s *AttendanceService) CheckIn(
     }
 
     // Determine work status
-    workStatus := s.determineWorkStatus(now, shiftID)
+    workStatus := "ON_TIME"
+    if checkinType == "OFFICE" {
+        // Only check shift constraints for OFFICE
+        workStatus = s.determineWorkStatus(now, shiftID)
+    }
 
     // Save to database
     var checkIO *models.CheckIO
@@ -118,6 +140,9 @@ func (s *AttendanceService) CheckIn(
         checkIO.Device = sql.NullString{String: device, Valid: true}
         checkIO.ShiftID = sql.NullInt64{Int64: int64(shiftID), Valid: true}
         checkIO.WorkStatus = sql.NullString{String: workStatus, Valid: true}
+        checkIO.CheckinType = sql.NullString{String: checkinType, Valid: true}
+        checkIO.FactoryName = sql.NullString{String: factoryName, Valid: true}
+        checkIO.Note = sql.NullString{String: note, Valid: true}
         err = s.repo.Update(checkIO)
     } else {
         // Create new record
@@ -133,6 +158,9 @@ func (s *AttendanceService) CheckIn(
             ShiftID:          sql.NullInt64{Int64: int64(shiftID), Valid: true},
             WorkStatus:       sql.NullString{String: workStatus, Valid: true},
             LeaveStatus:     sql.NullString{},
+            CheckinType:      sql.NullString{String: checkinType, Valid: true},
+            FactoryName:      sql.NullString{String: factoryName, Valid: true},
+            Note:             sql.NullString{String: note, Valid: true},
         }
         err = s.repo.Create(checkIO)
     }
@@ -163,6 +191,9 @@ func (s *AttendanceService) CheckOut(
 	latitude, longitude, accuracy float64,
 	address, device string,
 	shiftID int,
+    checkinType string,
+    factoryName string,
+    note string,
 ) (*models.CheckIOResponse, error) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)	
@@ -177,12 +208,40 @@ func (s *AttendanceService) CheckOut(
 	if existing.CheckoutTime.Valid {
 		return nil, errors.New("đã check-out hôm nay")
 	}
-	
-	// Xác thực vị trí
-	isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
-	if !isValid {
-		return nil, fmt.Errorf("vị trí check-out ngoài phạm vi cho phép (%.0fm từ văn phòng)", distance)
-	}
+
+    // Default or passed checkinType
+    if checkinType == "" {
+        // If not specified, maybe default to OFFICE? 
+        // Or if the user doesn't change it, use the existing one?
+        // But user might want to switch. 
+        // Assume Frontend sends the selected option. If empty, default "OFFICE".
+        checkinType = "OFFICE"
+    }
+
+	// Logic CheckinType
+    if checkinType == "FACTORY" {
+         if factoryName == "" {
+             // If existing is already factory and name is set, maybe reuse?
+             // But safer to require it again if type is passed as Factory
+             if existing.FactoryName.String == "" {
+                return nil, errors.New("tên nhà máy không được để trống khi check-out tại nhà máy")
+             }
+             // Use existing factory name if not provided but type matches?
+             // Let's enforce providing it or using existing if type matches.
+             factoryName = existing.FactoryName.String
+         }
+    } else {
+        // OFFICE
+        // Xác thực vị trí
+        isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
+        if !isValid {
+            if distance == 0 {
+                return nil, fmt.Errorf("Tín hiệu GPS yếu (Độ lệch: %.0fm > %.0fm). Vui lòng ra nơi thoáng hơn.", accuracy, s.locationService.accuracy)
+            }
+            return nil, fmt.Errorf("vị trí check-out ngoài phạm vi cho phép (%.0fm từ văn phòng)", distance)
+        }
+    }
+
 	// Xử lý hình ảnh với overlay
 	overlayInfo := OverlayInfo{
 		UserName:  userName,
@@ -204,6 +263,19 @@ func (s *AttendanceService) CheckOut(
 	existing.CheckoutLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
 	existing.CheckoutAddress = sql.NullString{String: address, Valid: true}
 	existing.Device = sql.NullString{String: device, Valid: true}
+    
+    // Update type/factory/note if changed or set
+    existing.CheckinType = sql.NullString{String: checkinType, Valid: true}
+    if factoryName != "" {
+        existing.FactoryName = sql.NullString{String: factoryName, Valid: true}
+    }
+    if note != "" {
+        // Append or replace? "thêm vào ghi chú"
+        existing.Note = sql.NullString{String: note, Valid: true} // Replace likely intended
+    } else {
+         // Keep existing? existing.Note
+    }
+    
 	err = s.repo.Update(existing)
 	if err != nil {
 		return nil, err
@@ -305,6 +377,25 @@ func (s *AttendanceService) GetByUserAndDay(
 	if checkIO.WorkStatus.Valid {
 		resp.WorkStatus = &checkIO.WorkStatus.String
 	}
+	if checkIO.LeaveStatus.Valid {
+		// Ensure CheckIOResponse has LeaveStatus field if needed, or if it is mapped elsewhere?
+		// Repo GetByUserAndDay maps LeaveStatus to checkIO.LeaveStatus
+		// The CheckIOResponse struct has LeaveStatus sql.NullString, so it is copied directly in initialization?
+		// Let's check initialization at line 313 (Step 128)
+		// resp := &models.CheckIOResponse{ ... LeaveStatus: checkIO.LeaveStatus ... }
+		// So LeaveStatus is already there.
+	}
+
+    // ===== Factory & Note =====
+    if checkIO.CheckinType.Valid {
+        resp.CheckinType = &checkIO.CheckinType.String
+    }
+    if checkIO.FactoryName.Valid {
+        resp.FactoryName = &checkIO.FactoryName.String
+    }
+    if checkIO.Note.Valid {
+        resp.Note = &checkIO.Note.String
+    }
 
 	return resp, nil
 }

@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
+  Briefcase
 } from "lucide-react";
 import { formatDate, formatTime } from "../../until/helper";
 import api from "../../service/api";
@@ -189,7 +190,7 @@ const HistoryPage = () => {
              <div className="p-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md">
                 <Clock className="text-[var(--accent-color)]" size={24} />
              </div>
-            Lịch sử chấm công
+            LỊCH SỬ CHẤM CÔNG
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1 ml-12">
             Xem lịch sử chấm công của nhân viên trong phòng ban
@@ -200,15 +201,14 @@ const HistoryPage = () => {
       <div className="max-w-7xl mx-auto px-0 py-0 space-y-4">
         {/* Filter Section */}
         <div className="bg-[var(--bg-secondary)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6 transition-colors duration-200">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter size={20} className="text-blue-600" />
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Bộ lọc</h2>
+          <div className="flex items-center gap-2 mb-4 border-b border-[var(--border-color)] pb-2 text-[var(--text-primary)] font-semibold">
+            <Filter size={18} className="text-[var(--accent-color)]" />
+            <h2 className="uppercase tracking-wider text-sm">Bộ lọc tìm kiếm</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                <Calendar size={14} className="inline mr-1" />
+              <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide ml-1 mb-1 block">
                 Từ ngày
               </label>
               <input
@@ -216,13 +216,12 @@ const HistoryPage = () => {
                 name="from_date"
                 value={filters.from_date}
                 onChange={handleFilterChange}
-                className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all appearance-none"
+                className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition-all appearance-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <Calendar size={14} className="inline mr-1" />
+              <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide ml-1 mb-1 block">
                 Đến ngày
               </label>
               <input
@@ -230,27 +229,25 @@ const HistoryPage = () => {
                 name="to_date"
                 value={filters.to_date}
                 onChange={handleFilterChange}
-                className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all appearance-none"
+                className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition-all appearance-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                <User size={14} className="inline mr-1" />
+              <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide ml-1 mb-1 block">
                 Tên nhân viên
               </label>
               <div className="relative">
-                <Search
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
-                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-[var(--text-secondary)]" />
+                </div>
                 <input
                   type="text"
                   name="user_name"
-                  placeholder="Nhập tên..."
+                  placeholder="Nhập tên nhân viên..."
                   value={filters.user_name}
                   onChange={handleFilterChange}
-                  className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all appearance-none"
+                  className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none transition-all appearance-none"
                 />
               </div>
             </div>
@@ -282,12 +279,10 @@ const HistoryPage = () => {
                       {[
                         "Ngày",
                         "Nhân viên",
-                        "Ca làm việc",
-                        "Check-in",
-                        "Check-out",
                         "Trạng thái",
-                        "Ảnh CI",
-                        "Ảnh CO",
+                        "Địa điểm",
+                        "Ghi chú",
+                        "Hành động"
                       ].map((h) => (
                         <th
                           key={h}
@@ -302,14 +297,14 @@ const HistoryPage = () => {
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {records.map((r) => (
                       <tr key={r.id} className="hover:bg-[var(--accent-color)]/10 even:bg-black/50 [.light_&]:even:bg-gray-50 border-b-2 border-slate-600 [.light_&]:border-slate-200 transition-colors">
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm whitespace-nowrap border-r border-slate-600 [.light_&]:border-slate-200">
                           <div className="flex items-center gap-2 text-[var(--text-secondary)]">
                             <Calendar size={14} className="text-[var(--text-secondary)]" />
                             <span className="font-medium text-[var(--text-primary)]">{formatDate(r.day)}</span>
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm whitespace-nowrap border-r border-slate-600 [.light_&]:border-slate-200">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] font-bold text-xs shadow-sm">
                               {r.user_name?.charAt(0).toUpperCase()}
@@ -320,60 +315,37 @@ const HistoryPage = () => {
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 text-sm text-[var(--text-secondary)] whitespace-nowrap">
-                          {r.shift_name || "-"}
-                        </td>
-
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          {r.checkin_time ? (
-                            <span className="font-mono font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
-                              {formatTime(r.checkin_time)}
-                            </span>
-                          ) : (
-                            <span className="text-[var(--text-secondary)] opacity-50">-</span>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          {r.checkout_time ? (
-                            <span className="font-mono font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded border border-orange-100">
-                              {formatTime(r.checkout_time)}
-                            </span>
-                          ) : (
-                            <span className="text-[var(--text-secondary)] opacity-50">-</span>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm whitespace-nowrap border-r border-slate-600 [.light_&]:border-slate-200">
                           {getWorkStatusBadge(r.work_status)}
                         </td>
 
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          {r.checkin_image ? (
-                            <button
-                              onClick={() => handleViewImage(r.checkin_image)}
-                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--accent-color)]/10 text-[var(--accent-color)] text-xs font-bold hover:bg-[var(--accent-color)] hover:text-white transition-all shadow-sm hover:shadow-lg hover:scale-110 hover:-translate-y-1 active:scale-90"
-                            >
-                              <Eye size={14} />
-                              Xem
-                            </button>
-                          ) : (
-                            <span className="text-[var(--text-secondary)] opacity-50">-</span>
-                          )}
+                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap border-r border-slate-600 [.light_&]:border-slate-200">
+                            {r.checkin_type === 'FACTORY' ? (
+                                <div className="flex flex-col">
+                                    <span className="text-indigo-600 uppercase text-xs font-bold">Nhà máy</span>
+                                    <span className="text-[var(--text-primary)] text-xs">{r.factory_name}</span>
+                                </div>
+                            ) : (
+                                <span className="text-blue-600 uppercase text-xs font-bold">Văn phòng</span>
+                            )}
                         </td>
 
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          {r.checkout_image ? (
-                            <button
-                              onClick={() => handleViewImage(r.checkout_image)}
-                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--accent-color)]/10 text-[var(--accent-color)] text-xs font-bold hover:bg-[var(--accent-color)] hover:text-white transition-all shadow-sm hover:shadow-lg hover:scale-110 hover:-translate-y-1 active:scale-90"
-                            >
-                              <Eye size={14} />
-                              Xem
-                            </button>
-                          ) : (
-                            <span className="text-[var(--text-secondary)] opacity-50">-</span>
-                          )}
+                        <td className="px-6 py-4 text-sm whitespace-nowrap border-r border-slate-600 [.light_&]:border-slate-200 max-w-[200px] truncate" title={r.note}>
+                            {r.note ? (
+                                <span className="text-[var(--text-primary)] italic">{r.note}</span>
+                            ) : (
+                                <span className="text-[var(--text-secondary)]">-</span>
+                            )}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm whitespace-nowrap border-r border-slate-600 [.light_&]:border-slate-200">
+                             <button
+                                onClick={() => setSelectedRecord(r)}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--accent-color)] text-black hover:brightness-110 transition-all font-bold text-xs shadow-md active:scale-95 hover:bg-[var(--accent-color)]/80 hover:scale-110"
+                             >
+                                <Eye size={14} />
+                                Xem chi tiết
+                             </button>
                         </td>
                       </tr>
                     ))}
@@ -401,7 +373,12 @@ const HistoryPage = () => {
                           </p>
                         </div>
                       </div>
-                      {getWorkStatusBadge(r.work_status)}
+                       <button
+                            onClick={() => setSelectedRecord(r)}
+                            className="px-3 py-1.5 bg-[var(--accent-color)] text-white rounded-lg text-xs font-bold shadow-sm"
+                        >
+                            Chi tiết
+                        </button>
                     </div>
 
                     <div className="p-3 border border-[var(--border-color)] rounded-xl space-y-2 text-sm mb-3">
@@ -411,47 +388,11 @@ const HistoryPage = () => {
                           {r.shift_name || "-"}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-secondary)]">Check-in:</span>
-                        {r.checkin_time ? (
-                          <span className="font-mono font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100">
-                            {formatTime(r.checkin_time)}
-                          </span>
-                        ) : (
-                          <span className="text-[var(--text-secondary)] opacity-50">-</span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-secondary)]">Check-out:</span>
-                        {r.checkout_time ? (
-                          <span className="font-mono font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded text-xs border border-orange-100">
-                            {formatTime(r.checkout_time)}
-                          </span>
-                        ) : (
-                          <span className="text-[var(--text-secondary)] opacity-50">-</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      {r.checkin_image && (
-                        <button
-                          onClick={() => handleViewImage(r.checkin_image)}
-                          className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-100 transition-all flex items-center justify-center gap-2 active:scale-95 active:shadow-inner"
-                        >
-                          <Eye size={14} />
-                          Ảnh Check-in
-                        </button>
-                      )}
-
-                      {r.checkout_image && (
-                        <button
-                          onClick={() => handleViewImage(r.checkout_image)}
-                          className="flex-1 py-2 bg-orange-50 text-orange-600 rounded-xl text-sm font-medium hover:bg-orange-100 transition-all flex items-center justify-center gap-2 active:scale-95 active:shadow-inner"
-                        >
-                          <Eye size={14} />
-                          Ảnh Check-out
-                        </button>
+                      {r.note && (
+                         <div className="flex flex-col gap-1 pt-1 border-t border-[var(--border-color)]">
+                             <span className="text-[var(--text-secondary)]">Ghi chú:</span>
+                             <span className="text-xs text-[var(--text-primary)] italic">{r.note}</span>
+                         </div>
                       )}
                     </div>
                   </div>
@@ -500,7 +441,7 @@ const HistoryPage = () => {
                             onClick={() => handlePageChange(p)}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                               p === pagination.page
-                                ? "bg-blue-600 text-white shadow-sm"
+                                ? "bg-[var(--accent-color)] text-white shadow-sm"
                                 : "border border-[var(--border-color)] hover:bg-[var(--bg-primary)] text-[var(--text-secondary)]"
                             }`}
                           >
@@ -524,14 +465,140 @@ const HistoryPage = () => {
         </div>
       </div>
 
+       {/* ===== DETAIL MODAL ===== */}
+        {selectedRecord && (
+            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="relative w-full max-w-2xl bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[90vh]">
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+                        <div>
+                            <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-full bg-[var(--accent-color)] text-white flex items-center justify-center text-sm">
+                                        {selectedRecord.user_name?.charAt(0).toUpperCase()}
+                                </span>
+                                {selectedRecord.user_name}
+                            </h3>
+                            <p className="text-xs text-[var(--text-secondary)] mt-0.5 ml-10">
+                                {formatDate(selectedRecord.day)}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setSelectedRecord(null)}
+                            className="p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] rounded-full transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Modal Body - Scrollable if needed */}
+                    <div className="p-4 overflow-y-auto custom-scrollbar">
+                        {/* Status & Info Grid */}
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="space-y-1">
+                                <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Trạng thái</p>
+                                <div>{getWorkStatusBadge(selectedRecord.work_status)}</div>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Địa điểm</p>
+                                {selectedRecord.checkin_type === 'FACTORY' ? (
+                                        <div className="font-bold text-indigo-500 text-sm">Nhà máy - {selectedRecord.factory_name}</div>
+                                ) : (
+                                        <div className="font-bold text-blue-500 text-sm">Văn phòng</div>
+                                )}
+                            </div>
+                            <div className="space-y-1 col-span-2">
+                                    <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">Ca làm việc</p>
+                                    <p className="font-medium text-[var(--text-primary)] text-sm">{selectedRecord.shift_name || "Chưa phân ca"}</p>
+                            </div>
+                            {selectedRecord.note && (
+                                <div className="col-span-2 bg-[var(--bg-primary)] p-3 rounded-lg border border-[var(--border-color)]">
+                                    <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Ghi chú</p>
+                                    <p className="text-sm italic text-[var(--text-primary)]">"{selectedRecord.note}"</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Time & Images Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Check-in Column */}
+                            <div className="bg-[var(--bg-primary)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                                <div className="p-3 border-b border-[var(--border-color)] bg-emerald-500/5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-emerald-600 uppercase">Input (Check-in)</span>
+                                        <span className="font-mono text-lg font-bold text-[var(--text-primary)]">
+                                            {selectedRecord.checkin_time ? formatTime(selectedRecord.checkin_time) : "--:--"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="p-3">
+                                    {selectedRecord.checkin_image ? (
+                                        <div 
+                                            className="aspect-video bg-black/50 rounded-lg overflow-hidden cursor-pointer group relative"
+                                            onClick={() => setViewingImage(selectedRecord.checkin_image)}
+                                        >
+                                            <img 
+                                                src={selectedRecord.checkin_image} 
+                                                alt="Checkin" 
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                    <Eye className="text-white opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="aspect-video bg-[var(--bg-secondary)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs border border-dashed border-[var(--border-color)]">
+                                            Không có ảnh
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Check-out Column */}
+                            <div className="bg-[var(--bg-primary)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                                <div className="p-3 border-b border-[var(--border-color)] bg-orange-500/5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-orange-600 uppercase">Output (Check-out)</span>
+                                        <span className="font-mono text-lg font-bold text-[var(--text-primary)]">
+                                            {selectedRecord.checkout_time ? formatTime(selectedRecord.checkout_time) : "--:--"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="p-3">
+                                    {selectedRecord.checkout_image ? (
+                                        <div 
+                                            className="aspect-video bg-black/50 rounded-lg overflow-hidden cursor-pointer group relative"
+                                            onClick={() => setViewingImage(selectedRecord.checkout_image)}
+                                        >
+                                            <img 
+                                                src={selectedRecord.checkout_image} 
+                                                alt="Checkout" 
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                    <Eye className="text-white opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="aspect-video bg-[var(--bg-secondary)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs border border-dashed border-[var(--border-color)]">
+                                            Không có ảnh
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
       {/* Image Modal */}
       {viewingImage && (
         <div
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/80 z-60 flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setViewingImage(null)}
         >
           <div
-            className="relative bg-[var(--bg-secondary)] rounded-2xl w-full max-w-4xl p-4 shadow-2xl"
+            className="relative bg-[var(--bg-secondary)] rounded-2xl w-full max-w-4xl p-4 shadow-2xl h-full max-h-[90vh] flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -544,7 +611,7 @@ const HistoryPage = () => {
             <img
               src={viewingImage}
               alt="Check image"
-              className="w-full max-h-[80vh] object-contain rounded-xl"
+              className="w-full h-full object-contain rounded-xl"
             />
           </div>
         </div>
