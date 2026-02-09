@@ -175,6 +175,8 @@ const HistoryPage = () => {
                       <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Ngày</th>
                       <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Trạng thái</th>
                       <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Địa điểm</th>
+                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Giờ làm</th>
+                      <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Công</th>
                       <th className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">Ghi chú</th>
                       <th className="px-4 py-3 text-right">Hành động</th>
                     </tr>
@@ -210,6 +212,17 @@ const HistoryPage = () => {
                             ) : (
                                 <span className="text-blue-600 uppercase text-[10px] font-bold">Văn phòng</span>
                             )}
+                        </td>
+
+                        <td className="px-4 py-3 border-r border-[var(--border-color)]">
+                            <span className="font-mono text-sm font-bold text-[var(--text-primary)]">
+                                {r.work_hours ? `${r.work_hours}h` : '-'}
+                            </span>
+                        </td>
+                        <td className="px-4 py-3 border-r border-[var(--border-color)]">
+                            <span className="font-bold text-emerald-600 text-sm">
+                                {r.work_unit !== undefined && r.work_unit !== null ? r.work_unit : '-'}
+                            </span>
                         </td>
 
                         <td className="px-4 py-3 text-sm text-[var(--text-secondary)] border-r border-[var(--border-color)] max-w-[200px] truncate" title={r.note}>
@@ -271,6 +284,17 @@ const HistoryPage = () => {
                             <p className="font-mono font-bold text-[var(--text-primary)] text-sm">
                               {r.checkout_time ? formatTime(r.checkout_time) : "--:--"}
                            </p>
+                        </div>
+                     </div>
+                     
+                     <div className="flex items-center justify-between text-sm px-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[var(--text-secondary)]">Giờ làm:</span>
+                            <span className="font-bold text-[var(--text-primary)]">{r.work_hours ? `${r.work_hours}h` : '-'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <span className="text-[var(--text-secondary)]">Công:</span>
+                             <span className="font-bold text-emerald-600">{r.work_unit !== undefined && r.work_unit !== null ? r.work_unit : '-'}</span>
                         </div>
                      </div>
                      

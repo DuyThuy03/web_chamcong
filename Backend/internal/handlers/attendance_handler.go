@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"net/http"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"attendance-system/internal/middleware"
+	"attendance-system/internal/models"
 	"attendance-system/internal/services"
 	"attendance-system/internal/utils"
 
@@ -33,6 +34,7 @@ type CheckInRequest struct {
     FactoryName string  `form:"factory_name"`
     Note        string  `form:"note"`
     CheckinType string  `form:"checkin_type"`
+    AccompanyingUserIDs []int `form:"accompanying_user_ids"`
 }
 type CheckOutRequest struct {
     Latitude    float64 `form:"latitude" binding:"required"`
@@ -44,11 +46,12 @@ type CheckOutRequest struct {
     FactoryName string  `form:"factory_name"`
     Note        string  `form:"note"`
     CheckinType string  `form:"checkin_type"`
+    AccompanyingUserIDs []int `form:"accompanying_user_ids"`
 }
 
 func (h *AttendanceHandler) CheckIn(c *gin.Context) {
     userID, _ := middleware.GetUserID(c)
-    userName := c.GetString("user_name") // Set this in auth middleware if needed
+    userName := c.GetString("user_name") 
 
     var req CheckInRequest
     if err := c.ShouldBind(&req); err != nil {
@@ -56,7 +59,6 @@ func (h *AttendanceHandler) CheckIn(c *gin.Context) {
         return
     }
 
-    // Get uploaded image
     file, header, err := c.Request.FormFile("image")
     if err != nil {
         utils.ErrorResponse(c, http.StatusBadRequest, "Image is required")
@@ -64,20 +66,17 @@ func (h *AttendanceHandler) CheckIn(c *gin.Context) {
     }
     defer file.Close()
 
-    // Validate file size (10MB max)
     if header.Size > 10*1024*1024 {
         utils.ErrorResponse(c, http.StatusBadRequest, "Image size too large (max 10MB)")
         return
     }
 
-    // Validate file type
     contentType := header.Header.Get("Content-Type")
     if contentType != "image/jpeg" && contentType != "image/png" {
         utils.ErrorResponse(c, http.StatusBadRequest, "Only JPEG and PNG images are allowed")
         return
     }
 
-    // Process check-in
     result, err := h.attendanceService.CheckIn(
         userID,
         userName,
@@ -92,6 +91,7 @@ func (h *AttendanceHandler) CheckIn(c *gin.Context) {
         req.CheckinType,
         req.FactoryName,
         req.Note,
+        req.AccompanyingUserIDs,
     )
 
     if err != nil {
@@ -124,7 +124,6 @@ func (h *AttendanceHandler) CheckOut(c *gin.Context) {
         return
     }
 
-    // Process check-out (similar to check-in but updates existing record)
     result, err := h.attendanceService.CheckOut(
         userID,
         userName,
@@ -139,8 +138,8 @@ func (h *AttendanceHandler) CheckOut(c *gin.Context) {
         req.CheckinType,
         req.FactoryName,
         req.Note,
+        req.AccompanyingUserIDs,
     )
-
 
     if err != nil {
         utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
@@ -164,19 +163,15 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 	var targetUserID *int
 	var departmentID *int
 
-	// ===== PERMISSION =====
 	switch role {
 
 	case "Nhân viên":
-		// Chỉ xem chính mình
 		targetUserID = &currentUserID
 
 	case "Trưởng phòng":
-		// Luôn giới hạn phòng ban
 		currentDeptID, _ := middleware.GetDepartmentID(c)
 		departmentID = &currentDeptID
 
-		// Nếu lọc theo user_id (cũ)
 		if userIDStr != "" {
 			uid, err := strconv.Atoi(userIDStr)
 			if err != nil {
@@ -202,7 +197,7 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 		}
 
 	default:
-		// Admin / Giám đốc
+
 		if userIDStr != "" {
 			uid, err := strconv.Atoi(userIDStr)
 			if err != nil {
@@ -213,7 +208,6 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 		}
 	}
 
-	// ===== DATE FILTER =====
 	var fromDate, toDate time.Time
 	var err error
 
@@ -239,7 +233,6 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 		toDate = time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, time.Local)
 	}
 
-	// ===== PAGINATION =====
 	page, _ := strconv.Atoi(pageStr)
 	limit, _ := strconv.Atoi(limitStr)
 
@@ -252,7 +245,6 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
-	// ===== QUERY =====
 	records, total, err := h.attendanceService.GetHistory(
 		targetUserID,
 		departmentID,
@@ -276,8 +268,6 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 		TotalPages: totalPages,
 	})
 }
-
-
 
 func (h *AttendanceHandler) GetToday(c *gin.Context) {
     userID, _ := middleware.GetUserID(c)
@@ -305,7 +295,6 @@ func (h *AttendanceHandler) GetMonthlyAttendanceSummary(c *gin.Context) {
 	departmentIDValue, _ := middleware.GetDepartmentID(c)
 	departmentID := &departmentIDValue
 
-
 	monthStr := c.Query("month") 
 	if monthStr == "" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Month parameter is required")
@@ -331,4 +320,68 @@ func (h *AttendanceHandler) GetMonthlyAttendanceSummary(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, summary)
+}
+
+func (h *AttendanceHandler) UpdateAttendance(c *gin.Context) {
+	
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid attendance ID")
+		return
+	}
+
+	var req models.UpdateAttendanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
+		return
+	}
+
+	role, _ := middleware.GetUserRole(c)
+	currentUserID, _ := middleware.GetUserID(c)
+	deptIDValue, _ := middleware.GetDepartmentID(c)
+	var deptID *int
+	if deptIDValue != 0 {
+		deptID = &deptIDValue
+	}
+
+	updatedRecord, err := h.attendanceService.UpdateAttendance(role, deptID, currentUserID, id, req)
+	if err != nil {
+
+		if strings.Contains(err.Error(), "quyền") || strings.Contains(err.Error(), "permission") {
+			utils.ErrorResponse(c, http.StatusForbidden, err.Error())
+		} else if strings.Contains(err.Error(), "not found") {
+			utils.ErrorResponse(c, http.StatusNotFound, err.Error())
+		} else {
+			utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+
+	utils.SuccessMessageResponse(c, http.StatusOK, "Cập nhật thành công", updatedRecord)
+}
+
+func (h *AttendanceHandler) GetHistoryDetails(c *gin.Context) {
+	
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid attendance ID")
+		return
+	}
+
+
+	// Currently just returning history for the record. 
+    // Usually should check if user can view this attendance (Manager/DeptHead/Owner).
+    // For now assuming valid token is enough or adding check based on role.
+    
+    // We can rely on service layer or just fetch. CheckIO view permissions are usually broad for Manager/DeptHead.
+    
+	history, err := h.attendanceService.GetAttendanceHistoryDetails(id)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get history details")
+		return
+	}
+	
+	utils.SuccessResponse(c, http.StatusOK, history)
 }

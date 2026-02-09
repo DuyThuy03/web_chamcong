@@ -10,15 +10,21 @@ import {
   RefreshCw,
   Timer,
   CalendarCheck,
-  Briefcase
+  Briefcase,
+  Users,
+  Search,
+  X,
+  Plus
 } from 'lucide-react';
 import CameraCapture from '../Camera/CameraCapture';
 import { attendanceService } from '../../service/attendance.service';
 import { getCurrentPosition, reverseGeocode, getDeviceInfo, formatTime } from '../../until/helper';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext'; // Import Toast
 
 const CheckOutForm = ({ onSuccess, checkInData }) => {
   const { user } = useAuth();
+  const toast = useToast(); // Use Toast
   const [showCamera, setShowCamera] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
@@ -37,6 +43,32 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
   const [checkinType, setCheckinType] = useState("OFFICE");
   const [factoryName, setFactoryName] = useState("");
   const [note, setNote] = useState("");
+  
+  // Group Check-out State
+  const [accompanyingUsers, setAccompanyingUsers] = useState([]); 
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+
+  useEffect(() => {
+    if (checkinType === "FACTORY" && availableUsers.length === 0) {
+        loadUsers();
+    }
+    if (checkinType !== "FACTORY") {
+        setAccompanyingUsers([]);
+    }
+  }, [checkinType]);
+
+  const loadUsers = async () => {
+    try {
+        const res = await attendanceService.getMinimalUsers();
+        if (res.success) {
+            setAvailableUsers(res.data);
+        }
+    } catch (error) {
+        console.error("Failed to load users", error);
+    }
+  };
 
   useEffect(() => {
     loadShifts();
@@ -146,7 +178,8 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
         location.accuracy,
         checkinType,
         factoryName,
-        note
+        note,
+        accompanyingUsers.map(u => u.id)
       );
 
       if (response.success) {
@@ -319,6 +352,43 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
                             />
                             </div>
                     )}
+
+                    {/* Group Check-out UI */}
+                    {checkinType === "FACTORY" && (
+                            <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in">
+                            <div className="flex justify-between items-center mb-3">
+                                <label className="text-sm font-bold text-[var(--text-secondary)] flex items-center gap-2">
+                                    <Users size={16} /> Check-out Nhóm
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowUserModal(true)}
+                                    className="text-xs flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded-md font-bold hover:bg-blue-200 transition-colors"
+                                >
+                                    <Plus size={14} /> Thêm người
+                                </button>
+                            </div>
+                            
+                            {accompanyingUsers.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {accompanyingUsers.map(u => (
+                                        <div key={u.id} className="bg-white border border-slate-200 px-2 py-1 rounded-md flex items-center gap-2 text-sm shadow-sm">
+                                            <span className="font-medium text-slate-700">{u.name}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setAccompanyingUsers(prev => prev.filter(user => user.id !== u.id))}
+                                                className="text-slate-400 hover:text-red-500 transition-colors"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-slate-400 italic">Chưa chọn thêm người đi cùng</p>
+                            )}
+                            </div>
+                    )}
                         
                         {/* Note Input */}
                         <div className="mt-3">
@@ -381,7 +451,6 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
                     )}
                 </div>
 
-                 {checkinType !== "FACTORY" && (
                      <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-rose-500/30 transition-all hover:shadow-md hover:-translate-y-0.5">
                        <label className="text-sm font-bold text-[var(--text-secondary)] mb-2 flex items-center gap-1.5">
                          <Briefcase size={16} className="text-[var(--text-secondary)]" /> Ca làm việc *
@@ -390,7 +459,8 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
                          <select 
                            value={selectedShift} 
                            onChange={(e) => setSelectedShift(e.target.value)}
-                           className="w-full appearance-none bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] text-sm rounded-md focus:ring-1 focus:ring-rose-500 block p-3.5 pr-10 font-bold shadow-sm transition-all cursor-pointer truncate"
+                           disabled={!!checkInData?.shift_id}
+                           className={`w-full appearance-none bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] text-sm rounded-md focus:ring-1 focus:ring-rose-500 block p-3.5 pr-10 font-bold shadow-sm transition-all truncate ${!!checkInData?.shift_id ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
                          >
                            {shifts.map(s => (
                              <option key={s.id} value={s.id}>{s.name} ({formatTime(s.start_time).slice(0,5)} - {formatTime(s.end_time).slice(0,5)})</option>
@@ -401,7 +471,6 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
                          </div>
                        </div>
                      </div>
-                 )}
 
                  {/* Submit Button */}
                  <div className="mt-2 md:mt-auto pt-4 border-t border-[var(--border-color)] lg:border-none">
@@ -444,6 +513,93 @@ const CheckOutForm = ({ onSuccess, checkInData }) => {
             userName={user?.name}
             currentAddress={address}
           />
+        </div>
+      )}
+      
+      {/* User Selection Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden border-2 border-[var(--accent-color)]">
+                <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-secondary)]">
+                    <h3 className="font-bold text-lg text-[var(--text-primary)]">Chọn người đi cùng</h3>
+                    <button type="button" onClick={() => setShowUserModal(false)} className="text-[var(--text-secondary)] hover:text-red-500 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+                
+                <div className="p-4 border-b border-[var(--border-color)]">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={18} />
+                        <input 
+                            type="text"
+                            placeholder="Tìm kiếm nhân viên..."
+                            value={userSearch}
+                            onChange={(e) => setUserSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none"
+                        />
+                    </div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    {availableUsers
+                        .filter(u => u.id !== user?.id && u.name.toLowerCase().includes(userSearch.toLowerCase()))
+                        .map(u => {
+                            const isSelected = accompanyingUsers.some(sel => sel.id === u.id);
+                            const hasCheckedIn = u.has_checked_in;
+                            const hasCheckedOut = u.has_checked_out;
+                            const canCheckOut = hasCheckedIn && !hasCheckedOut;
+
+                            return (
+                                <div 
+                                    key={u.id}
+                                    onClick={() => {
+                                        if (!canCheckOut) {
+                                            if (!hasCheckedIn) toast.error(`Nhân viên ${u.name} chưa check-in hôm nay`);
+                                            else if (hasCheckedOut) toast.error(`Nhân viên ${u.name} đã check-out rồi`);
+                                            return;
+                                        }
+                                        if (isSelected) {
+                                            setAccompanyingUsers(prev => prev.filter(x => x.id !== u.id));
+                                        } else {
+                                            setAccompanyingUsers(prev => [...prev, u]);
+                                        }
+                                    }}
+                                    className={`
+                                        p-3 rounded-lg flex items-center justify-between cursor-pointer transition-colors border
+                                        ${!canCheckOut 
+                                            ? 'bg-[var(--bg-secondary)] border-[var(--border-color)] opacity-60 cursor-not-allowed' 
+                                            : isSelected 
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+                                                : 'hover:bg-[var(--bg-secondary)] border-transparent'
+                                        }
+                                    `}
+                                >
+                                    <div>
+                                        <p className="font-bold text-[var(--text-primary)]">{u.name}</p>
+                                        <p className="text-xs text-[var(--text-secondary)]">{u.department_name || "Chưa phân phòng ban"}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {!hasCheckedIn && <span className="text-xs font-bold text-[var(--text-secondary)] bg-[var(--bg-primary)] px-2 py-0.5 rounded border border-[var(--border-color)]">Chưa check-in</span>}
+                                        {hasCheckedOut && <span className="text-xs font-bold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded border border-green-200 dark:border-green-800">Đã check-out</span>}
+                                        {isSelected && <CheckCircle size={20} className="text-blue-600 dark:text-blue-400" />}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    }
+                    {availableUsers.length === 0 && <p className="text-center text-slate-500 py-4">Đang tải danh sách...</p>}
+                </div>
+                
+                <div className="p-4 border-t border-[var(--border-color)] bg-[var(--bg-secondary)] flex justify-end">
+                    <button 
+                        type="button"
+                        onClick={() => setShowUserModal(false)}
+                        className="bg-[var(--accent-color)] text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-md"
+                    >
+                        Xong ({accompanyingUsers.length})
+                    </button>
+                </div>
+            </div>
         </div>
       )}
     </div>

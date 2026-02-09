@@ -1,4 +1,4 @@
-package repository
+﻿package repository
 
 import (
 	"database/sql"
@@ -33,7 +33,7 @@ func (r *LeaveRequestRepository) Create(req *models.LeaveRequest) error {
 		req.Session,
 		req.ExpectedArrivalTime,
 		req.Reason,
-		"CHO_DUYET", // Default status
+		"CHO_DUYET", 
 	).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 }
 
@@ -41,11 +41,9 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 	var countQuery, dataQuery string
 	var args []interface{}
 	var countArgs []interface{}
-	
-	// Base queries
+
 	var whereClauses []string
-	
-	// 1. Role-based filtering
+
 	if role == "Nhân viên" {
 		whereClauses = append(whereClauses, "lr.user_id = $1")
 		args = append(args, userID)
@@ -58,23 +56,19 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 		
 	}
 
-	// 2. Status filtering
 	if status != "" && status != "ALL" {
-		// Calculate next placeholder index
+		
 		idx := len(args) + 1
 		whereClauses = append(whereClauses, "lr.status = $"+strconv.Itoa(idx))
 		args = append(args, status)
 		countArgs = append(countArgs, status)
 	}
 
-	// Construct WHERE string
 	whereStr := ""
 	if len(whereClauses) > 0 {
 		whereStr = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
-	// Build final queries
-	// Count query doesn't need pagination params
 	if role == "Trưởng phòng" && deptID != nil {
 		countQuery = `
 			SELECT COUNT(*) FROM "leaverequest" lr
@@ -83,11 +77,10 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 	} else if role == "Nhân viên" {
 		countQuery = `SELECT COUNT(*) FROM "leaverequest" lr ` + whereStr
 	} else {
-		// Admin 
+		
 		countQuery = `SELECT COUNT(*) FROM "leaverequest" lr ` + whereStr
 	}
 
-	// Data query needs pagination params
 	dataQuery = `
 		SELECT lr.id, lr.user_id, u.name, lr.type, lr.from_date, lr.to_date,
 				lr.session, lr.expected_arrival_time, lr.reason, lr.status,
@@ -98,19 +91,15 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 	` + whereStr + `
 		ORDER BY lr.created_at DESC
 		LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
-	
-	
-	// Add pagination args
+
 	args = append(args, limit, offset)
 
-	// Get total count
 	var total int
 	err := r.db.QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Get data
 	rows, err := r.db.Query(dataQuery, args...)
 	if err != nil {
 		return nil, 0, err
@@ -148,8 +137,7 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 
 		req.FromDate = fromDate.Format("2006-01-02")
 		req.ToDate = toDate.Format("2006-01-02")
-		
-		// Convert sql.NullString to *string
+
 		if session.Valid {
 			req.Session = &session.String
 		}
@@ -159,19 +147,16 @@ func (r *LeaveRequestRepository) GetAll(userID int, role string, deptID *int, li
 		if reason.Valid {
 			req.Reason = &reason.String
 		}
-		
-		// Convert sql.NullInt64 to *int
+
 		if approvedByID.Valid {
 			id := int(approvedByID.Int64)
 			req.ApprovedByID = &id
 		}
-		
-		// Convert sql.NullString to *string
+
 		if approvedByName.Valid {
 			req.ApprovedByName = &approvedByName.String
 		}
-		
-		// Convert sql.NullTime to *time.Time
+
 		if approvedAt.Valid {
 			req.ApprovedAt = &approvedAt.Time
 		}
@@ -226,8 +211,7 @@ func (r *LeaveRequestRepository) GetByID(id int) (*models.LeaveRequestResponse, 
 
 	req.FromDate = fromDate.Format("2006-01-02")
 	req.ToDate = toDate.Format("2006-01-02")
-	
-	// Convert sql.NullString to *string
+
 	if session.Valid {
 		req.Session = &session.String
 	}
@@ -237,19 +221,16 @@ func (r *LeaveRequestRepository) GetByID(id int) (*models.LeaveRequestResponse, 
 	if reason.Valid {
 		req.Reason = &reason.String
 	}
-	
-	// Convert sql.NullInt64 to *int
+
 	if approvedByID.Valid {
 		id := int(approvedByID.Int64)
 		req.ApprovedByID = &id
 	}
-	
-	// Convert sql.NullString to *string
+
 	if approvedByName.Valid {
 		req.ApprovedByName = &approvedByName.String
 	}
-	
-	// Convert sql.NullTime to *time.Time
+
 	if approvedAt.Valid {
 		req.ApprovedAt = &approvedAt.Time
 	}
@@ -257,7 +238,17 @@ func (r *LeaveRequestRepository) GetByID(id int) (*models.LeaveRequestResponse, 
 	return &req, nil
 }
 
-func (r *LeaveRequestRepository) UpdateStatus(id int, status string, approvedByID int) error {
+func (r *LeaveRequestRepository) UpdateStatus(id int, status string, approvedByID int, paid *bool) error {
+	if paid != nil {
+		query := `
+			UPDATE "leaverequest"
+			SET status = $1, approved_by_id = $2, approved_at = $3, updated_at = $4, paid = $5
+			WHERE id = $6
+		`
+		_, err := r.db.Exec(query, status, approvedByID, time.Now(), time.Now(), *paid, id)
+		return err
+	}
+
 	query := `
 		UPDATE "leaverequest"
 		SET status = $1, approved_by_id = $2, approved_at = $3, updated_at = $4
@@ -267,7 +258,6 @@ func (r *LeaveRequestRepository) UpdateStatus(id int, status string, approvedByI
 	_, err := r.db.Exec(query, status, approvedByID, time.Now(), time.Now(), id)
 	return err
 }
-//cập nhật trạng thái DA_HUY cho yêu cầu nghỉ phép
 
 func (r *LeaveRequestRepository) GetUserIDByRequestID(id int) (int, error) {
 	var userID int
@@ -275,7 +265,7 @@ func (r *LeaveRequestRepository) GetUserIDByRequestID(id int) (int, error) {
 	err := r.db.QueryRow(query, id).Scan(&userID)
 	return userID, err
 }
-//Hủy bỏ yêu cầu nghỉ phép
+
 func (r *LeaveRequestRepository) CancelRequest(id int) error {
 	query := `
 		UPDATE "leaverequest"
@@ -286,7 +276,7 @@ func (r *LeaveRequestRepository) CancelRequest(id int) error {
 	_, err := r.db.Exec(query, "DA_HUY", time.Now(), id)
 	return err
 }
-//Xóa yêu cầu nghỉ phép
+
 func (r *LeaveRequestRepository) Delete(id int) error {
 	query := `
 		DELETE FROM "leaverequest"

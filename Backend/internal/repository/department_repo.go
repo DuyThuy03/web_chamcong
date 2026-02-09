@@ -1,4 +1,4 @@
-package repository
+﻿package repository
 
 import (
 	"database/sql"
@@ -48,7 +48,6 @@ func (r *DepartmentRepository) GetAll() ([]models.Department, error) {
 	return departments, nil
 }
 
-
 func (r *DepartmentRepository) GetByID(id int) (*models.Department, error) {
 	query := `
 		SELECT d.id, d.name, d.leader_id, d.created_at, d.updated_at
@@ -76,10 +75,9 @@ func (r *DepartmentRepository) GetByID(id int) (*models.Department, error) {
 
 	return &dept, nil
 }
-//hàm lấy danh sách nhân viên theo phòng ban
 
 func (r *DepartmentRepository) GetUsersByDepartmentID(deptID int, limit, offset int) ([]models.User, int, error) {
-	// Get total count
+	
 	var total int
 	countQuery := `SELECT COUNT(*) FROM users WHERE department_id = $1`
 	err := r.db.QueryRow(countQuery, deptID).Scan(&total)
@@ -87,7 +85,6 @@ func (r *DepartmentRepository) GetUsersByDepartmentID(deptID int, limit, offset 
 		return nil, 0, err
 	}
 
-	// Get users
 	query := `
 		SELECT u.id, u.email, u.full_name, u.role, u.department_id, 
 		       d.name as department_name, u.shift_id, s.name as shift_name,
@@ -132,6 +129,5 @@ func (r *DepartmentRepository) GetUsersByDepartmentID(deptID int, limit, offset 
 
 	return users, total, nil
 }
-//Lấy trạng thái điểm danh  của phòng ban
 
 	

@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"fmt"
@@ -40,6 +40,7 @@ func main() {
     departmentRepo := repository.NewDepartmentRepository(db.DB)
     shiftRepo := repository.NewShiftRepository(db.DB)
     leaveRequestRepo := repository.NewLeaveRequestRepository(db.DB)
+    overtimeRepo := repository.NewOvertimeRepository(db.DB)
 
     // Initialize services
     imageService, err := services.NewImageService(
@@ -75,6 +76,7 @@ func main() {
     departmentHandler := handlers.NewDepartmentHandler(departmentRepo)
     shiftHandler := handlers.NewShiftHandler(shiftRepo)
     leaveHandler := handlers.NewLeaveHandler(leaveRequestRepo, userRepo, hub)
+    overtimeHandler := handlers.NewOvertimeHandler(overtimeRepo, userRepo, hub)
     managerHandler := handlers.NewManagerHandler(userRepo, attendanceRepo, userService, hub)
     dashboardHandler := handlers.NewDashboardHandler(
         services.NewDashboardService(
@@ -84,7 +86,7 @@ func main() {
     )
 
     // Setup Gin router
-    router := setupRouter(cfg, userRepo, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler, managerHandler, dashboardHandler, hub)
+    router := setupRouter(cfg, userRepo, authHandler, userHandler, attendanceHandler, departmentHandler, shiftHandler, leaveHandler, managerHandler, dashboardHandler, overtimeHandler, hub)
 
     // Start server
     addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -106,6 +108,7 @@ func setupRouter(
     leaveHandler *handlers.LeaveHandler,
     managerHandler *handlers.ManagerHandler,
     dashboardHandler *handlers.DashboardHandler,
+    overtimeHandler *handlers.OvertimeHandler,
     hub *ws.Hub,
 ) *gin.Engine {
     
@@ -185,9 +188,12 @@ func setupRouter(
                     middleware.CheckAttendanceAccess(),
                     attendanceHandler.GetHistory,
                 )
+                attendance.PUT("/:id", attendanceHandler.UpdateAttendance)
+                attendance.GET("/:id/history", attendanceHandler.GetHistoryDetails)
             }
 
             // User management (admin only)
+            protected.GET("/users/minimal", userHandler.GetMinimalList)
             users := protected.Group("/users")
             users.Use(middleware.RequireRole("Giám đốc", "Quản lý", "Trưởng phòng"))
             {
@@ -265,6 +271,24 @@ func setupRouter(
                 leaves.PUT("/:id/reject",
                     middleware.RequireRole("Trưởng phòng", "Quản lý", "Giám đốc"),
                     leaveHandler.Reject,
+                )
+            }
+
+            // Overtime requests
+            overtime := protected.Group("/overtime")
+            {
+                overtime.POST("", overtimeHandler.Create)
+                overtime.GET("", overtimeHandler.GetAll)
+                overtime.GET("/:id", overtimeHandler.GetByID)
+                overtime.DELETE("/:id", overtimeHandler.Delete)
+                // Manager actions
+                overtime.PUT("/:id/approve",
+                    middleware.RequireRole("Trưởng phòng", "Quản lý", "Giám đốc"),
+                    overtimeHandler.Approve,
+                )
+                overtime.PUT("/:id/reject",
+                    middleware.RequireRole("Trưởng phòng", "Quản lý", "Giám đốc"),
+                    overtimeHandler.Reject,
                 )
             }
         }

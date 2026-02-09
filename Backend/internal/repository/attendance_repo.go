@@ -1,4 +1,4 @@
-package repository
+﻿package repository
 
 import (
 	"context"
@@ -16,14 +16,34 @@ type AttendanceRepository struct {
     baseURL string
 }
 type MonthlyAttendanceSummary struct {
-    UserID           int
-    UserName         string
-    DepartmentName   string
-    TotalDays        int
-    WorkingDays      int
-    AbsentDays       int
-    LeaveDays        int
-    LateDays         int
+    UserID                int
+    UserName              string
+    DepartmentName        string
+    TotalDays             int
+    TotalStandardWorkDays float64
+    TotalOTHours          float64
+    TotalPaidLeaveDays    float64
+    TotalWorkDays         float64
+    AbsentDays            float64
+    LateDays              int
+    BaseSalary            float64
+    TotalBaseSalary       float64
+    TotalOTSalary         float64
+    TotalSalary           float64
+}
+
+type DailyAttendanceDetailRow struct {
+    UserID       int
+    Day          time.Time
+    WorkUnit     sql.NullFloat64
+    WorkStatus   sql.NullString
+    CheckinType  sql.NullString
+    FactoryName  sql.NullString
+    Note         sql.NullString
+    LeaveType    sql.NullString
+    OTHours      sql.NullFloat64
+    IsPaidLeave  sql.NullBool
+    OTWeighted   sql.NullFloat64
 }
 
 func NewAttendanceRepository(db *sql.DB, baseURL string) *AttendanceRepository {
@@ -33,7 +53,6 @@ func NewAttendanceRepository(db *sql.DB, baseURL string) *AttendanceRepository {
     }
 }
 
-// Helper function to convert file path to URL
 func (r *AttendanceRepository) convertPathToURL(path string) string {
 	if path == "" {
 		return ""
@@ -41,7 +60,7 @@ func (r *AttendanceRepository) convertPathToURL(path string) string {
 	if strings.HasPrefix(path, "http") {
 		return path
 	}
-	// Replace backslashes with forward slashes
+	
 	path = strings.ReplaceAll(path, "\\", "/")
 	// Add /uploads/ prefix if not already present
 	if !strings.HasPrefix(path, "/uploads/") && !strings.HasPrefix(path, "uploads/") {
@@ -55,34 +74,40 @@ func (r *AttendanceRepository) Create(checkIO *models.CheckIO) error {
     return r.db.QueryRow(`
         INSERT INTO CheckIO (user_id, day, checkin_time, checkin_image, 
                             checkin_latitude, checkin_longitude, checkin_address,
-                            device, shift_id, work_status, leave_status, checkin_type, factory_name, note)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                            device, shift_id, work_status, leave_status, checkin_type, factory_name, note,
+                            work_hours, work_unit, is_valid)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING id
     `, checkIO.UserID, checkIO.Day, checkIO.CheckinTime, checkIO.CheckinImage,
         checkIO.CheckinLatitude, checkIO.CheckinLongitude, checkIO.CheckinAddress,
         checkIO.Device, checkIO.ShiftID, checkIO.WorkStatus, checkIO.LeaveStatus,
         checkIO.CheckinType, checkIO.FactoryName, checkIO.Note,
+        checkIO.WorkHours, checkIO.WorkUnit, checkIO.IsValid,
     ).Scan(&checkIO.ID)
 }
 
 func (r *AttendanceRepository) Update(checkIO *models.CheckIO) error {
     _, err := r.db.Exec(`
         UPDATE CheckIO 
-        SET checkin_time = $1, checkout_time = $2, 
-            checkin_image = $3, checkout_image = $4,
-            checkin_latitude = $5, checkin_longitude = $6,
-            checkout_latitude = $7, checkout_longitude = $8,
-            checkin_address = $9, checkout_address = $10,
-            device = $11, shift_id = $12, work_status = $13,
-            leave_status = $14, checkin_type = $15, factory_name = $16, note = $17, updated_at = NOW()
-        WHERE id = $18
-    `, checkIO.CheckinTime, checkIO.CheckoutTime,
-        checkIO.CheckinImage, checkIO.CheckoutImage,
-        checkIO.CheckinLatitude, checkIO.CheckinLongitude,
-        checkIO.CheckoutLatitude, checkIO.CheckoutLongitude,
-        checkIO.CheckinAddress, checkIO.CheckoutAddress,
-        checkIO.Device, checkIO.ShiftID, checkIO.WorkStatus,
-        checkIO.LeaveStatus, checkIO.CheckinType, checkIO.FactoryName, checkIO.Note, checkIO.ID)
+        SET 
+         checkout_time = $1,
+         checkout_image = $2,
+         checkout_latitude = $3, checkout_longitude = $4, checkout_address = $5,
+         checkin_type = $6, factory_name = $7,
+         note = $8,
+         work_hours = $9, work_unit = $10, 
+         is_valid = $11,
+         updated_at = NOW()
+        WHERE id = $12
+    `, 
+    checkIO.CheckoutTime, 
+    checkIO.CheckoutImage,
+    checkIO.CheckoutLatitude, checkIO.CheckoutLongitude, checkIO.CheckoutAddress,
+    checkIO.CheckinType, checkIO.FactoryName,
+    checkIO.Note,
+    checkIO.WorkHours, checkIO.WorkUnit, 
+    checkIO.IsValid, 
+    checkIO.ID)
     return err
 }
 
@@ -92,7 +117,8 @@ func (r *AttendanceRepository) GetByUserAndDay(userID int, day time.Time) (*mode
         SELECT id, user_id, day, checkin_time, checkout_time,
                checkin_image, checkout_image, checkin_latitude, checkin_longitude,
                checkout_latitude, checkout_longitude, checkin_address, checkout_address,
-               device, shift_id, work_status, leave_status, checkin_type, factory_name, note, created_at
+               device, shift_id, work_status, leave_status, checkin_type, factory_name, note,
+               work_hours, work_unit, is_valid, created_at
         FROM CheckIO WHERE user_id = $1 AND day = $2
     `, userID, day).Scan(
         &checkIO.ID, &checkIO.UserID, &checkIO.Day,
@@ -102,7 +128,8 @@ func (r *AttendanceRepository) GetByUserAndDay(userID int, day time.Time) (*mode
         &checkIO.CheckoutLatitude, &checkIO.CheckoutLongitude,
         &checkIO.CheckinAddress, &checkIO.CheckoutAddress,
         &checkIO.Device, &checkIO.ShiftID, &checkIO.WorkStatus,
-        &checkIO.LeaveStatus, &checkIO.CheckinType, &checkIO.FactoryName, &checkIO.Note, &checkIO.CreatedAt,
+        &checkIO.LeaveStatus, &checkIO.CheckinType, &checkIO.FactoryName, &checkIO.Note,
+        &checkIO.WorkHours, &checkIO.WorkUnit, &checkIO.IsValid, &checkIO.CreatedAt,
     )
     
     if err == sql.ErrNoRows {
@@ -123,7 +150,7 @@ func (r *AttendanceRepository) GetByID(id int) (*models.CheckIOResponse, error) 
                c.checkout_latitude, c.checkout_longitude,
                c.checkin_address, c.checkout_address,
                c.device, c.shift_id, s.name as shift_name,
-               c.work_status, c.leave_status, c.checkin_type, c.factory_name, c.note
+               c.work_status, c.leave_status, c.checkin_type, c.factory_name, c.note, c.work_unit
         FROM CheckIO c
         JOIN users u ON c.user_id = u.id
         LEFT JOIN department d ON u.department_id = d.id
@@ -137,7 +164,7 @@ func (r *AttendanceRepository) GetByID(id int) (*models.CheckIOResponse, error) 
         &resp.CheckoutLatitude, &resp.CheckoutLongitude,
         &resp.CheckinAddress, &resp.CheckoutAddress,
         &resp.Device, &resp.ShiftID, &resp.ShiftName,
-        &resp.WorkStatus, &resp.LeaveStatus, &resp.CheckinType, &resp.FactoryName, &resp.Note,
+        &resp.WorkStatus, &resp.LeaveStatus, &resp.CheckinType, &resp.FactoryName, &resp.Note, &resp.WorkUnit,
     )
     
     if err != nil {
@@ -174,13 +201,23 @@ func (r *AttendanceRepository) GetHistory(
                c.day, c.checkin_time, c.checkout_time,
                c.checkin_image, c.checkout_image,
                c.shift_id, s.name as shift_name,
-               c.work_status, c.leave_status, c.checkin_type, c.factory_name, c.note
+               c.work_status, c.leave_status, c.checkin_type, c.factory_name, c.note, c.work_unit, c.work_hours
         FROM CheckIO c
         JOIN users u ON c.user_id = u.id
         LEFT JOIN department d ON u.department_id = d.id
         LEFT JOIN shifts s ON c.shift_id = s.id
         WHERE c.day BETWEEN $1 AND $2
     `
+
+// ... (lines 186-225 skipped for brevity in replacement, but wait, I can only replace block)
+// I must replace the query definition AND the scan usage.
+// Since they are far apart (lines 173 and 237), I should use MULTI replace or handle them carefully.
+// But the tool is `replace_file_content`.
+// I will split this into TWO edits or ONE big block if contiguous? No, they are separated by ~50 lines.
+// I will use `replace_file_content` for Query first, then Scan.
+// Wait, I can't do multiple replace calls in one step, but I can check if I can include all context.
+// No, too large.
+// I'll do Query update first.
 
     args := []interface{}{fromDate, toDate}
     argCount := 2
@@ -197,7 +234,6 @@ func (r *AttendanceRepository) GetHistory(
         args = append(args, *departmentID)
     }
 
-    // ✅ FILTER THEO TÊN
     if username != "" {
         argCount++
         query += " AND LOWER(u.name) LIKE $" + strconv.Itoa(argCount)
@@ -238,7 +274,7 @@ func (r *AttendanceRepository) GetHistory(
             &resp.Day, &resp.CheckinTime, &resp.CheckoutTime,
             &resp.CheckinImage, &resp.CheckoutImage,
             &resp.ShiftID, &resp.ShiftName,
-            &resp.WorkStatus, &resp.LeaveStatus, &resp.CheckinType, &resp.FactoryName, &resp.Note,
+            &resp.WorkStatus, &resp.LeaveStatus, &resp.CheckinType, &resp.FactoryName, &resp.Note, &resp.WorkUnit, &resp.WorkHours,
         )
         if err != nil {
             return nil, 0, err
@@ -262,7 +298,6 @@ func (r *AttendanceRepository) GetHistory(
 
     return records, total, nil
 }
-
 
 // GetTodayAttendanceByDepartment - Lấy trạng thái điểm danh hôm nay của thành viên trong phòng ban 
 
@@ -626,8 +661,149 @@ func (r *AttendanceRepository) GetMonthlyAttendanceSummary(
     departmentID *int,
 ) ([]MonthlyAttendanceSummary, error) {
 
-    query := `WITH days_in_month AS ( SELECT generate_series( date_trunc('month', make_date($1, $2, 1)), (date_trunc('month', make_date($1, $2, 1)) + interval '1 month - 1 day')::date, interval '1 day' )::date AS day ) SELECT u.id AS user_id, u.name AS user_name, d.name AS department_name, COUNT(DISTINCT dim.day) AS total_days, COUNT(DISTINCT c.day) FILTER ( WHERE c.work_status IN ('ON_TIME', 'LATE') AND c.checkin_time IS NOT NULL AND c.checkout_time IS NOT NULL ) AS working_days, COUNT(DISTINCT dim.day) FILTER ( WHERE lr.id IS NOT NULL ) AS leave_days, COUNT(DISTINCT dim.day) - COUNT(DISTINCT c.day) FILTER ( WHERE c.work_status IN ('ON_TIME', 'LATE') AND c.leave_status = 'NONE' AND c.checkin_time IS NOT NULL AND c.checkout_time IS NOT NULL ) - COUNT(DISTINCT dim.day) FILTER ( WHERE lr.id IS NOT NULL ) AS absent_days , COUNT(DISTINCT c.day) FILTER ( WHERE c.work_status = 'LATE' ) AS late_days FROM users u LEFT JOIN department d ON d.id = u.department_id CROSS JOIN days_in_month dim LEFT JOIN CheckIO c ON c.user_id = u.id AND c.day = dim.day LEFT JOIN LeaveRequest lr ON lr.user_id = u.id AND lr.status = 'DA_DUYET' AND dim.day BETWEEN lr.from_date AND lr.to_date WHERE u.role = 'Nhân viên' AND u.status = 'Hoạt động' AND ($3::int IS NULL OR u.department_id = $3::int) GROUP BY u.id, u.name, d.name ORDER BY u.name;
-`
+    query := `
+    WITH days_in_month AS (
+        SELECT generate_series(
+            date_trunc('month', make_date($1, $2, 1)),
+            (date_trunc('month', make_date($1, $2, 1)) + interval '1 month - 1 day')::date,
+            interval '1 day'
+        )::date AS day
+    ),
+    raw_work_data AS (
+        SELECT 
+           user_id,
+           work_status,
+           day,
+           work_unit,
+           EXTRACT(DOW FROM day) as day_of_week, -- 0=Sunday, 6=Saturday
+           (
+             EXTRACT(EPOCH FROM (checkout_time - checkin_time)) - 
+             CASE 
+                 WHEN checkin_time::time < '13:30:00'::time AND checkout_time::time > '12:00:00'::time THEN
+                     EXTRACT(EPOCH FROM (
+                          LEAST(checkout_time::time, '13:30:00'::time) - GREATEST(checkin_time::time, '12:00:00'::time)
+                     ))
+                 ELSE 0
+             END
+           ) / 3600.0 as effective_hours
+        FROM CheckIO
+        WHERE EXTRACT(YEAR FROM day) = $1 AND EXTRACT(MONTH FROM day) = $2
+        AND is_valid = TRUE
+        AND (
+            (checkin_time IS NOT NULL AND (checkout_time IS NOT NULL OR work_unit IS NOT NULL))
+            OR
+            (work_unit IS NOT NULL)
+        )
+    ),
+    work_data AS (
+       SELECT user_id, 
+              SUM(
+                COALESCE(work_unit,
+                    CASE 
+                        WHEN day_of_week = 0 THEN 0 -- Sunday, no standard work counted typically, or OT only
+                        WHEN day_of_week = 6 THEN -- Saturday
+                            CASE 
+                                WHEN effective_hours >= 4 THEN 0.5 -- Full Saturday shift (morning)
+                                WHEN effective_hours >= 2 THEN 0.25 -- Partial
+                                ELSE 0.0
+                            END
+                        ELSE -- Weekdays
+                             CASE 
+                                WHEN effective_hours >= 8 THEN 1.0
+                                WHEN effective_hours >= 4 THEN 0.5
+                                ELSE 0.0
+                            END
+                    END
+                )
+              ) as total_standard_work,
+              COUNT(*) FILTER (WHERE effective_hours >= 4) as attended_days,
+              COUNT(*) FILTER (WHERE work_status = 'LATE') as late_count
+       FROM raw_work_data
+       GROUP BY user_id
+    ),
+    ot_data AS (
+       SELECT user_id, SUM(total_hours * COALESCE(adjusted_rate, base_rate, 1)) as total_ot_hours_weighted
+       FROM overtime
+       WHERE EXTRACT(YEAR FROM day) = $1 AND EXTRACT(MONTH FROM day) = $2
+       AND status = 'DA_DUYET'
+       GROUP BY user_id
+    ),
+    ot_raw_hours AS (
+       SELECT user_id, SUM(total_hours) as total_ot_hours_raw
+       FROM overtime
+       WHERE EXTRACT(YEAR FROM day) = $1 AND EXTRACT(MONTH FROM day) = $2
+       AND status = 'DA_DUYET'
+       GROUP BY user_id
+    ),
+    leave_data AS (
+        SELECT 
+            lr.user_id, 
+            COUNT(d.day) as paid_leave_days,
+            COUNT(d.day) FILTER (WHERE d.day <= CURRENT_DATE) as passed_paid_leave_days
+        FROM LeaveRequest lr
+        JOIN days_in_month d ON d.day BETWEEN lr.from_date AND lr.to_date
+        WHERE lr.status = 'DA_DUYET' AND lr.paid = TRUE
+        GROUP BY lr.user_id
+    ),
+    month_stats AS (
+        SELECT 
+            COUNT(*) as total_days_raw,
+            SUM(
+                CASE 
+                    WHEN EXTRACT(DOW FROM day) = 0 THEN 0   -- Sunday
+                    WHEN EXTRACT(DOW FROM day) = 6 THEN 0.5 -- Saturday
+                    ELSE 1.0                                -- Weekday
+                END
+            ) as total_weighted_work_days,
+            SUM(
+                CASE 
+                    WHEN day <= CURRENT_DATE THEN
+                        CASE 
+                            WHEN EXTRACT(DOW FROM day) = 0 THEN 0
+                            WHEN EXTRACT(DOW FROM day) = 6 THEN 0.5
+                            ELSE 1.0
+                        END
+                    ELSE 0
+                END
+            ) as total_weighted_passed_days
+        FROM days_in_month
+    )
+    SELECT 
+        u.id, 
+        u.name, 
+        d.name,
+        (SELECT total_days_raw FROM month_stats) as days_in_month,
+        COALESCE(w.total_standard_work, 0),
+        COALESCE(o.total_ot_hours_weighted, 0),
+        COALESCE(ld.paid_leave_days, 0),
+        (COALESCE(w.total_standard_work, 0) + COALESCE(ld.paid_leave_days, 0)) as total_work_days,
+        CAST(GREATEST(0, ROUND((SELECT total_weighted_passed_days FROM month_stats) - COALESCE(w.total_standard_work, 0) - COALESCE(ld.passed_paid_leave_days, 0))) AS INTEGER) as absent_days_weighted, -- Logic check needed here, absent days usually integer
+        COALESCE(w.late_count, 0),
+        COALESCE(u.base_salary, 0),
+        
+        -- Total Base Salary (Base is Daily Salary)
+        (COALESCE(u.base_salary, 0) * (COALESCE(w.total_standard_work, 0) + COALESCE(ld.paid_leave_days, 0))) as total_base_salary,
+
+        -- Total OT Salary = (Base / 8) * WeightedOTHours (Converted Hours)
+        ((COALESCE(u.base_salary, 0) / 8.0) * COALESCE(o.total_ot_hours_weighted, 0)) as total_ot_salary,
+
+        -- Total Salary Sum
+        (
+            (COALESCE(u.base_salary, 0) * (COALESCE(w.total_standard_work, 0) + COALESCE(ld.paid_leave_days, 0)))
+            +
+            ((COALESCE(u.base_salary, 0) / 8.0) * COALESCE(o.total_ot_hours_weighted, 0))
+        ) as final_total_salary
+
+    FROM users u
+    LEFT JOIN department d ON d.id = u.department_id
+    LEFT JOIN work_data w ON u.id = w.user_id
+    LEFT JOIN ot_data o ON u.id = o.user_id
+    LEFT JOIN ot_raw_hours orh ON u.id = orh.user_id
+    LEFT JOIN leave_data ld ON u.id = ld.user_id
+    WHERE u.role = 'Nhân viên' AND u.status = 'Hoạt động'
+    AND ($3::int IS NULL OR u.department_id = $3::int)
+    ORDER BY u.name;
+    `
 
     rows, err := r.db.QueryContext(ctx, query, year, month, departmentID)
     if err != nil {
@@ -639,21 +815,101 @@ func (r *AttendanceRepository) GetMonthlyAttendanceSummary(
 
     for rows.Next() {
         var s MonthlyAttendanceSummary
+        var deptName sql.NullString // Handle potential null department
         err := rows.Scan(
             &s.UserID,
             &s.UserName,
-            &s.DepartmentName,
+            &deptName,
             &s.TotalDays,
-            &s.WorkingDays,
-            &s.LeaveDays,
+            &s.TotalStandardWorkDays,
+            &s.TotalOTHours,
+            &s.TotalPaidLeaveDays,
+            &s.TotalWorkDays,
             &s.AbsentDays,
             &s.LateDays,
+			&s.BaseSalary,
+			&s.TotalBaseSalary,
+			&s.TotalOTSalary,
+			&s.TotalSalary,
         )
         if err != nil {
             return nil, err
+        }
+        if deptName.Valid {
+            s.DepartmentName = deptName.String
         }
         results = append(results, s)
     }
 
     return results, nil
+}
+
+func (r *AttendanceRepository) GetCheckIOByID(id int) (*models.CheckIO, error) {
+    checkIO := &models.CheckIO{}
+    err := r.db.QueryRow(`
+        SELECT id, user_id, day, checkin_time, checkout_time,
+               checkin_image, checkout_image, checkin_latitude, checkin_longitude,
+               checkout_latitude, checkout_longitude, checkin_address, checkout_address,
+               device, shift_id, work_status, leave_status, checkin_type, factory_name, note,
+               work_hours, work_unit, is_valid, created_at, updated_at
+        FROM CheckIO WHERE id = $1
+    `, id).Scan(
+        &checkIO.ID, &checkIO.UserID, &checkIO.Day,
+        &checkIO.CheckinTime, &checkIO.CheckoutTime,
+        &checkIO.CheckinImage, &checkIO.CheckoutImage,
+        &checkIO.CheckinLatitude, &checkIO.CheckinLongitude,
+        &checkIO.CheckoutLatitude, &checkIO.CheckoutLongitude,
+        &checkIO.CheckinAddress, &checkIO.CheckoutAddress,
+        &checkIO.Device, &checkIO.ShiftID, &checkIO.WorkStatus,
+        &checkIO.LeaveStatus, &checkIO.CheckinType, &checkIO.FactoryName, &checkIO.Note,
+        &checkIO.WorkHours, &checkIO.WorkUnit, &checkIO.IsValid, 
+        &checkIO.CreatedAt, &checkIO.UpdatedAt,
+    )
+    
+    if err == sql.ErrNoRows {
+        return nil, nil // Return nil if not found
+    }
+	if err != nil {
+		return nil, err
+	}
+	return checkIO, nil
+}
+
+func (r *AttendanceRepository) InsertEditHistory(history models.AttendanceEditHistory) error {
+	_, err := r.db.Exec(`
+		INSERT INTO attendance_edit_history (checkin_id, editor_id, old_values, new_values, change_reason)
+		VALUES ($1, $2, $3, $4, $5)
+	`, history.CheckinID, history.EditorID, history.OldValues, history.NewValues, history.ChangeReason)
+	return err
+}
+
+func (r *AttendanceRepository) GetEditHistory(checkinID int) ([]models.AttendanceEditHistory, error) {
+	rows, err := r.db.Query(`
+		SELECT h.id, h.checkin_id, h.editor_id, u.name as editor_name, 
+			   h.old_values, h.new_values, h.change_reason, h.created_at
+		FROM attendance_edit_history h
+		JOIN users u ON h.editor_id = u.id
+		WHERE h.checkin_id = $1
+		ORDER BY h.created_at DESC
+	`, checkinID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var history []models.AttendanceEditHistory
+	for rows.Next() {
+		var h models.AttendanceEditHistory
+		var changeReason sql.NullString
+		// Scan directly into the fields. lib/pq handles JSON/JSONB as []byte which fits json.RawMessage
+		if err := rows.Scan(&h.ID, &h.CheckinID, &h.EditorID, &h.EditorName, 
+							&h.OldValues, &h.NewValues, &changeReason, &h.CreatedAt); err != nil {
+			return nil, err
+		}
+		if changeReason.Valid {
+			h.ChangeReason = changeReason.String
+		}
+		history = append(history, h)
+	}
+	return history, nil
 }

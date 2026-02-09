@@ -137,9 +137,7 @@ const EmployeeDashboard = () => {
       if (formData.password !== formData.confirmPassword) {
          newErrors.push("Mật khẩu xác nhận không khớp.");
       }
-      if (formData.password.length < 6) {
-         newErrors.push("Mật khẩu phải có ít nhất 6 ký tự.");
-      }
+     
     }
 
     if (newErrors.length > 0) {
@@ -155,8 +153,7 @@ const EmployeeDashboard = () => {
       email: user.email, // Ensure email is sent as identifier if required
     };
     
-    // Only remove confirmPassword, keep password if it's set (for backend to process)
-    // If password is empty, remove it so we don't accidentally set empty password
+   
     if (!submitData.password) {
       delete submitData.password;
     }
@@ -316,6 +313,8 @@ const EmployeeDashboard = () => {
                       editing={editing}
                       onChange={handleChange}
                    />
+
+                   
                    
                    {editing && (
                      <>
@@ -339,6 +338,14 @@ const EmployeeDashboard = () => {
                         />
                      </>
                    )}
+                   <InputField 
+                      label="Lương cơ bản" 
+                      icon={FileText} 
+                      value={user?.base_salary ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(user.base_salary) : "0 ₫"}
+                      disabled={true} 
+                      editing={editing}
+                      onChange={() => {}} 
+                   />
 
                    <InputField 
                       label="Số điện thoại" 

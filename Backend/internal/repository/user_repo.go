@@ -1,4 +1,4 @@
-package repository
+﻿package repository
 
 import (
 	"attendance-system/internal/models"
@@ -31,17 +31,16 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
     return user, err
 }
 
-// GetUserByID returns User model for update operations
 func (r *UserRepository) GetUserByID(id int) (*models.User, error) {
     user := &models.User{}
     err := r.db.QueryRow(`
         SELECT id, name, email, date_of_birth, address, gender, phone_number, 
-               password, role, department_id, status, created_at, updated_at
+               password, role, department_id, base_salary, status, created_at, updated_at
         FROM users WHERE id = $1 
     `, id).Scan(
         &user.ID, &user.Name, &user.Email, &user.DateOfBirth, &user.Address,
         &user.Gender, &user.PhoneNumber, &user.Password, &user.Role,
-        &user.DepartmentID, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+        &user.DepartmentID, &user.BaseSalary, &user.Status, &user.CreatedAt, &user.UpdatedAt,
     )
     
     if err == sql.ErrNoRows {
@@ -50,7 +49,6 @@ func (r *UserRepository) GetUserByID(id int) (*models.User, error) {
     return user, err
 }
 
-// GetByID returns UserResponse for API responses
 func (r *UserRepository)GetByID(id int) (*models.UserResponse, error) {
     user := &models.UserResponse{}
     var dob, address, gender, phone sql.NullString
@@ -59,14 +57,14 @@ func (r *UserRepository)GetByID(id int) (*models.UserResponse, error) {
     
     err := r.db.QueryRow(`
         SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, 
-               u.phone_number,u.password, u.role, u.department_id, u.status, u.created_at,
+               u.phone_number,u.password, u.role, u.department_id, u.base_salary, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
         WHERE u.id = $1
     `, id).Scan(
         &user.ID, &user.Name, &user.Email, &dob, &address, &gender,
-        &phone, &user.Password, &user.Role, &deptID, &user.Status, &user.CreatedAt, &deptName,
+        &phone, &user.Password, &user.Role, &deptID, &user.BaseSalary, &user.Status, &user.CreatedAt, &deptName,
     )
     
     if err == sql.ErrNoRows {
@@ -98,9 +96,9 @@ func (r *UserRepository)GetByID(id int) (*models.UserResponse, error) {
     
     return user, nil
 }
-//hàm lấy danh sách user theo phòng ban
+
 func (r *UserRepository) GetByDepartment(departmentID int, limit, offset int) ([]*models.UserResponse, int, error) {
-    // Get total count
+    
     var total int
     err := r.db.QueryRow(`
         SELECT COUNT(*) FROM users WHERE department_id = $1
@@ -108,10 +106,9 @@ func (r *UserRepository) GetByDepartment(departmentID int, limit, offset int) ([
     if err != nil {
         return nil, 0, err
     }
-    
-    // Get users
+
     rows, err := r.db.Query(`
-        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, u.phone_number, u.role, u.department_id, u.status, u.created_at,
+        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, u.phone_number, u.role, u.department_id, u.base_salary, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
@@ -132,7 +129,8 @@ func (r *UserRepository) GetByDepartment(departmentID int, limit, offset int) ([
         
         err := rows.Scan(
             &user.ID, &user.Name, &user.Email, &user.DateOfBirth, &user.Address, &user.Gender, &user.PhoneNumber, &user.Role,
-            &deptID, &user.Status, &user.CreatedAt, &deptName,
+
+            &deptID, &user.BaseSalary, &user.Status, &user.CreatedAt, &deptName,
         )
         if err != nil {
             return nil, 0, err
@@ -160,7 +158,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.UserResponse, int,
     }
     
     rows, err := r.db.Query(`
-        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, u.phone_number, u.role, u.department_id, u.status, u.created_at,
+        SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender, u.phone_number, u.role, u.department_id, u.base_salary, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
@@ -180,7 +178,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.UserResponse, int,
         
         err := rows.Scan(
             &user.ID, &user.Name, &user.Email, &user.DateOfBirth, &user.Address, &user.Gender, &user.PhoneNumber, &user.Role,
-            &deptID, &user.Status, &user.CreatedAt, &deptName,
+            &deptID, &user.BaseSalary, &user.Status, &user.CreatedAt, &deptName,
         )
         if err != nil {
             return nil, 0, err
@@ -217,7 +215,7 @@ func (r *UserRepository) GetAllWithSearch(
 
     rows, err := r.db.Query(`
         SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender,
-               u.phone_number, u.role, u.department_id, u.status, u.created_at,
+               u.phone_number, u.role, u.department_id, u.base_salary, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
@@ -240,7 +238,7 @@ func (r *UserRepository) GetAllWithSearch(
         err := rows.Scan(
             &user.ID, &user.Name, &user.Email, &user.DateOfBirth,
             &user.Address, &user.Gender, &user.PhoneNumber, &user.Role,
-            &deptID, &user.Status, &user.CreatedAt, &deptName,
+            &deptID, &user.BaseSalary, &user.Status, &user.CreatedAt, &deptName,
         )
         if err != nil {
             return nil, 0, err
@@ -268,7 +266,6 @@ func (r *UserRepository) GetByDepartmentWithSearch(
 
     var total int
 
-    // COUNT
     countQuery := `
         SELECT COUNT(*)
         FROM users
@@ -282,10 +279,9 @@ func (r *UserRepository) GetByDepartmentWithSearch(
         return nil, 0, err
     }
 
-    // SELECT
     rows, err := r.db.Query(`
         SELECT u.id, u.name, u.email, u.date_of_birth, u.address, u.gender,
-               u.phone_number, u.role, u.department_id, u.status, u.created_at,
+               u.phone_number, u.role, u.department_id, u.base_salary, u.status, u.created_at,
                d.name as department_name
         FROM users u
         LEFT JOIN department d ON u.department_id = d.id
@@ -318,6 +314,7 @@ func (r *UserRepository) GetByDepartmentWithSearch(
             &user.PhoneNumber,
             &user.Role,
             &deptID,
+            &user.BaseSalary,
             &user.Status,
             &user.CreatedAt,
             &deptName,
@@ -340,43 +337,42 @@ func (r *UserRepository) GetByDepartmentWithSearch(
     return users, total, nil
 }
 
-
 func (r *UserRepository) UserUpdateProfile(user *models.User) error {
     _, err := r.db.Exec(`
         UPDATE users 
         SET name = $1, email = $2, date_of_birth = $3, address = $4, 
             gender = $5, phone_number = $6, role = $7, department_id = $8,
-            status = $9, updated_at = NOW()
-        WHERE id = $10
+            status = $9, base_salary = $10, updated_at = NOW()
+        WHERE id = $11
     `, user.Name, user.Email, user.DateOfBirth, user.Address, user.Gender,
-        user.PhoneNumber, user.Role, user.DepartmentID, user.Status, user.ID)
+        user.PhoneNumber, user.Role, user.DepartmentID, user.Status, user.BaseSalary, user.ID)
     return err
 }
 
 func (r *UserRepository) Create(user *models.User) error {
     err := r.db.QueryRow(`
-        INSERT INTO users (name, email, password, role, department_id, status, phone_number, date_of_birth, address, gender)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO users (name, email, password, role, department_id, status, phone_number, date_of_birth, address, gender, base_salary)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id, created_at
     `, user.Name, user.Email, user.Password, user.Role, user.DepartmentID, user.Status, 
-       user.PhoneNumber, user.DateOfBirth, user.Address, user.Gender).Scan(&user.ID, &user.CreatedAt)
+       user.PhoneNumber, user.DateOfBirth, user.Address, user.Gender, user.BaseSalary).Scan(&user.ID, &user.CreatedAt)
     return err
 }
 
 func (r *UserRepository) Update(user *models.User) error {
     if user.Password != "" {
-        // Có đổi mật khẩu
+        
         _, err := r.db.Exec(`
             UPDATE users 
             SET name = $1, email = $2, password = $3,
                 date_of_birth = $4, address = $5, gender = $6,
                 phone_number = $7, role = $8, department_id = $9,
-                status = $10, updated_at = NOW()
-            WHERE id = $11
+                status = $10, base_salary = $11, updated_at = NOW()
+            WHERE id = $12
         `,
             user.Name,
             user.Email,
-            user.Password, // đã hash
+            user.Password, 
             user.DateOfBirth,
             user.Address,
             user.Gender,
@@ -384,19 +380,19 @@ func (r *UserRepository) Update(user *models.User) error {
             user.Role,
             user.DepartmentID,
             user.Status,
+            user.BaseSalary,
             user.ID,
         )
         return err
     }
 
-    // Không đổi mật khẩu
     _, err := r.db.Exec(`
         UPDATE users 
         SET name = $1, email = $2,
             date_of_birth = $3, address = $4, gender = $5,
             phone_number = $6, role = $7, department_id = $8,
-            status = $9, updated_at = NOW()
-        WHERE id = $10
+            status = $9, base_salary = $10, updated_at = NOW()
+        WHERE id = $11
     `,
         user.Name,
         user.Email,
@@ -407,13 +403,45 @@ func (r *UserRepository) Update(user *models.User) error {
         user.Role,
         user.DepartmentID,
         user.Status,
+        user.BaseSalary,
         user.ID,
     )
 
     return err
 }
 
-//hàm xóa user
+func (r *UserRepository) GetMinimalList() ([]*models.UserMinimal, error) {
+    // Current date logic compatible with various DBs (Postgres assumed based on $1 syntax elsewhere)
+    rows, err := r.db.Query(`
+        SELECT u.id, u.name, d.name as department_name,
+               CASE WHEN c.checkin_time IS NOT NULL THEN TRUE ELSE FALSE END as has_checked_in,
+               CASE WHEN c.checkout_time IS NOT NULL THEN TRUE ELSE FALSE END as has_checked_out
+        FROM users u
+        LEFT JOIN department d ON u.department_id = d.id
+        LEFT JOIN CheckIO c ON u.id = c.user_id AND DATE(c.day) = CURRENT_DATE
+        WHERE u.status = 'Hoạt động' AND u.id != 1
+        ORDER BY u.name ASC
+    `)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var users []*models.UserMinimal
+    for rows.Next() {
+        var user models.UserMinimal
+        var deptName sql.NullString
+        if err := rows.Scan(&user.ID, &user.Name, &deptName, &user.HasCheckedIn, &user.HasCheckedOut); err != nil {
+            return nil, err
+        }
+        if deptName.Valid {
+            user.DepartmentName = deptName.String
+        }
+        users = append(users, &user)
+    }
+    return users, nil
+}
+
 func (r *UserRepository) Delete(userID int) error {
     _, err := r.db.Exec(`DELETE FROM users WHERE id = $1`, userID)
     return err

@@ -1,4 +1,4 @@
-package services
+﻿package services
 
 import (
 	"attendance-system/internal/models"
@@ -7,8 +7,6 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
@@ -21,13 +19,11 @@ func NewUserService(userRepo *repository.UserRepository) *UserService {
 	}
 }
 
-// CreateUser - Tạo user mới
 func (s *UserService) CreateUser(
 	auth *models.AuthContext,
 	req *models.CreateUserRequest,
 ) (*models.User, error) {
 
-	// 1. Check email
 	existingUser, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
@@ -36,23 +32,26 @@ func (s *UserService) CreateUser(
 		return nil, fmt.Errorf("email đã tồn tại")
 	}
 
-	// 2. Hash password
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("lỗi mã hóa mật khẩu: %v", err)
 	}
 
-	// 3. Tạo user cơ bản
+    role := req.Role
+    if role == "" {
+        role = "Nhân viên"
+    }
+
 	user := &models.User{
-    Name:     req.Name,
-    Email:    req.Email,
-    Password: hashedPassword,
-    Role:     "Nhân viên",
-    Status:   "Hoạt động",
+    Name:       req.Name,
+    Email:      req.Email,
+    Password:   hashedPassword,
+    Role:       role,
+    Status:     "Hoạt động",
+    BaseSalary: req.BaseSalary,
 }
 
-// 4. GÁN DEPARTMENT THEO ROLE
-switch auth.Role {
+	switch auth.Role {
 
 case "Trưởng phòng":
     user.DepartmentID = sql.NullInt64{
@@ -72,7 +71,7 @@ case "Quản lý", "Giám đốc":
 default:
     return nil, fmt.Errorf("không có quyền tạo thành viên")
 }
-	// 5. Optional fields
+	
 	if req.DateOfBirth != nil {
 		if parsedDate, err := time.Parse("2006-01-02", *req.DateOfBirth); err == nil {
 			user.DateOfBirth.Time = parsedDate
@@ -95,7 +94,6 @@ default:
 		user.PhoneNumber.Valid = true
 	}
 
-	// 6. Save DB
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, fmt.Errorf("lỗi khi tạo user: %v", err)
 	}
@@ -103,16 +101,13 @@ default:
 	return user, nil
 }
 
-
-// UpdateUser - Cập nhật user
 func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role string) error {
-	// Lấy user hiện tại
+	
 	existingUser, err := s.userRepo.GetUserByID(userID)
 	if err != nil || existingUser == nil {
 		return fmt.Errorf("không tìm thấy user")
 	}
 
-	// Kiểm tra email nếu có thay đổi
 	if req.Email != nil && *req.Email != existingUser.Email {
 		checkUser, _ := s.userRepo.GetByEmail(*req.Email)
 		if checkUser != nil {
@@ -120,7 +115,6 @@ func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role
 		}
 	}
 
-	// Build user object để update
 	user := &models.User{
 		ID:           userID,
 		Name:         existingUser.Name,
@@ -133,9 +127,9 @@ func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role
 		Address:      existingUser.Address,
 		Gender:       existingUser.Gender,
 		PhoneNumber:  existingUser.PhoneNumber,
+		BaseSalary:   existingUser.BaseSalary,
 	}
 
-	// Update các field từ request
 	if req.Name != nil {
 		user.Name = *req.Name
 	}
@@ -167,7 +161,6 @@ func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role
 		user.PhoneNumber.Valid = true
 	}
 
-	// Chỉ Quản lý và Giám đốc mới được update role, department, status
 	if role == "Quản lý" || role == "Giám đốc" || role == "Trưởng phòng" {
 		if req.Role != nil {
 			user.Role = *req.Role
@@ -181,20 +174,23 @@ func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role
 		if req.Status != nil {
 			user.Status = *req.Status
 		}
-		if req.NewPassword != nil  {
-    hashed, err := bcrypt.GenerateFromPassword(
-        []byte(*req.NewPassword),
-        bcrypt.DefaultCost,
-    )
-    if err != nil {
-        return err
-    }
-    user.Password = string(hashed)
-}
+        if req.BaseSalary != nil {
+            user.BaseSalary = *req.BaseSalary
+        }
+		newPass := req.NewPassword
+		if newPass == nil {
+			newPass = req.Password
+		}
+		
+		if newPass != nil {
+			hashed, err := utils.HashPassword(*newPass)
+			if err != nil {
+				return err
+			}
+			user.Password = hashed
+		}
 	}
-	
 
-	// Update vào database
 	err = s.userRepo.Update(user)
 	
 	if err != nil {
@@ -204,18 +200,14 @@ func (s *UserService) UpdateUser(userID int, req *models.UpdateUserRequest, role
 	return nil
 }
 
-// DeleteUser - Xóa user (soft delete)
 func (s *UserService) DeleteUser(userID int) error {
 	existingUser, err := s.userRepo.GetUserByID(userID)
 	if err != nil || existingUser == nil {
 		return fmt.Errorf("không tìm thấy user")
 	}
-//	Xóa user khỏi database
+
 	err = s.userRepo.Delete(userID)
-	
-	// Soft delete bằng cách set status = 'Không hoạt động'
-	// existingUser.Status = "Không hoạt động"
-	// err = s.userRepo.Update(existingUser)
+
 	if err != nil {
 		return fmt.Errorf("lỗi khi xóa user: %v", err)
 	}

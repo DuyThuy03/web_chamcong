@@ -148,3 +148,52 @@ ADD COLUMN checkin_type TEXT DEFAULT 'OFFICE';
 ALTER TABLE checkio
 ADD CONSTRAINT ck_checkio_checkin_type
 CHECK (checkin_type IN ('OFFICE', 'FACTORY'));
+
+ALTER TABLE checkio
+ADD CONSTRAINT ck_checkio_checkin_type
+CHECK (checkin_type IN ('OFFICE', 'FACTORY'));
+
+//Thêm từ đây
+ALTER TABLE checkio
+ADD COLUMN work_hours NUMERIC(4,2),
+ADD COLUMN work_unit NUMERIC(3,2),
+ADD COLUMN is_valid BOOLEAN DEFAULT TRUE;
+
+ALTER TABLE checkio
+DROP CONSTRAINT IF EXISTS checkio_work_status_check;
+
+ALTER TABLE checkio
+ADD CONSTRAINT checkio_work_status_check
+CHECK (
+  work_status IN (
+    'FULL_DAY',
+    'HALF_DAY',
+    'LATE',
+    'ABSENT'
+  )
+);
+
+CREATE TABLE overtime (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id),
+    day DATE NOT NULL,
+
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    total_hours NUMERIC(4,2) NOT NULL,
+
+    base_rate NUMERIC(3,2) DEFAULT 1,
+    adjusted_rate NUMERIC(3,2),
+    adjustment_reason TEXT,
+
+    approved_by INT REFERENCES users(id),
+    approved_at TIMESTAMP,
+    status TEXT DEFAULT 'CHO_DUYET'
+        CHECK (status IN ('CHO_DUYET', 'DA_DUYET', 'TU_CHOI')),
+
+    created_at TIMESTAMP DEFAULT NOW()
+);
+ALTER TABLE leaverequest 
+add COLUMN paid SET DEFAULT FALSE;
+
+ALTER TABLE overtime ADD COLUMN IF NOT EXISTS content TEXT;

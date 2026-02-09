@@ -45,25 +45,21 @@ const LeavesHeadPage = () => {
     };
   }, [user, filterStatus, currentPage]);
 
-  // WS lắng nghe sự kiện nhân viên hủy đơn (LEAVE_CANCELED)
   useEffect(() => {
     if (!user) return;
 
     const handlerUpdateLeave = (data) => {
       console.log("WS RECEIVED LEAVE_CANCELED:", data);
-      
-      // Update counts regardless
       fetchCounts();
 
       setLeaveRequests((prev) => {
         const index = prev.findIndex((item) => item.id === data.id);
         if (index !== -1) {
-          // Update in place to show new status (e.g. Cancelled)
           const updated = [...prev];
           updated[index] = data; 
           return updated;
         }
-        // If not in list, do not add it 
+       
         return prev;
       });
     };
@@ -75,7 +71,6 @@ const LeavesHeadPage = () => {
     };
   }, [user, filterStatus, currentPage]);
 
-  // Ensure current page is valid
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
@@ -167,12 +162,25 @@ const LeavesHeadPage = () => {
     }
   };
 
+  const [paidDecisions, setPaidDecisions] = useState({});
+
+  const togglePaidDecision = (id) => {
+    setPaidDecisions(prev => ({
+        ...prev,
+        [id]: !prev[id] 
+    }));
+  };
+
   const handleApproveLeave = async (leaveId) => {
     if (!window.confirm("Bạn có chắc muốn duyệt đơn này?")) return;
+    
+    const isPaid = paidDecisions[leaveId] !== undefined ? paidDecisions[leaveId] : true;
 
     try {
-      await api.put(`/leaves/${leaveId}/approve`);
-      toast.success("Đã duyệt đơn nghỉ phép");
+      await api.put(`/leaves/${leaveId}/approve`, {
+          paid: isPaid
+      });
+      toast.success(`Đã duyệt đơn (${isPaid ? 'Có lương' : 'Không lương'})`);
       fetchLeaveRequests();
       fetchCounts();
     } catch (error) {
@@ -207,6 +215,8 @@ const LeavesHeadPage = () => {
         return "bg-green-50 text-green-700 border-green-200 ring-green-600/20";
       case "TU_CHOI":
         return "bg-red-50 text-red-700 border-red-200 ring-red-600/20";
+      case "DA_HUY":
+        return "bg-gray-50 text-gray-700 border-gray-200 ring-gray-500/20";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200 ring-gray-500/20";
     }
@@ -220,6 +230,8 @@ const LeavesHeadPage = () => {
         return "Đã duyệt";
       case "TU_CHOI":
         return "Từ chối";
+      case "DA_HUY":
+        return "Đã hủy";
       default:
         return status;
     }
@@ -230,6 +242,7 @@ const LeavesHeadPage = () => {
         case "CHO_DUYET": return <Clock size={14} className="mr-1.5" />;
         case "DA_DUYET": return <CheckCircle size={14} className="mr-1.5" />;
         case "TU_CHOI": return <XCircle size={14} className="mr-1.5" />;
+        case "DA_HUY": return <XCircle size={14} className="mr-1.5" />;
         default: return <AlertCircle size={14} className="mr-1.5" />;
       }
   };
@@ -327,6 +340,9 @@ const LeavesHeadPage = () => {
                       <th className="px-4 py-4 text-xs font-bold text-white [.light_&]:text-gray-700 uppercase tracking-wider border-r border-slate-600 [.light_&]:border-slate-200">
                         Trạng thái
                       </th>
+                      <th className="px-4 py-4 text-xs font-bold text-white [.light_&]:text-gray-700 uppercase tracking-wider border-r border-slate-600 [.light_&]:border-slate-200">
+                        Chế độ lương
+                      </th>
                       <th className="px-4 py-4 text-xs font-bold text-white [.light_&]:text-gray-700 uppercase tracking-wider text-right">
                         Hành động
                       </th>
@@ -334,7 +350,11 @@ const LeavesHeadPage = () => {
                   </thead>
 
                   <tbody className="">
-                    {leaveRequests.map((r) => (
+                    {leaveRequests.map((r) => {
+                      // Init state if undefined, default to true
+                      const isPaid = paidDecisions[r.id] !== undefined ? paidDecisions[r.id] : true;
+                      
+                      return (
                       <tr key={r.id} className="hover:bg-[var(--accent-color)]/10 even:bg-black/50 [.light_&]:even:bg-gray-50 border-b-2 border-slate-600 [.light_&]:border-slate-200 transition-colors">
                         <td className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">
                           <div className="flex items-center gap-3">
@@ -380,6 +400,28 @@ const LeavesHeadPage = () => {
                             {getStatusText(r.status)}
                           </span>
                         </td>
+                        <td className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200 text-center">
+                            {r.status === "CHO_DUYET" ? (
+                                <label className="inline-flex items-center cursor-pointer gap-2">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer"
+                                        checked={isPaid}
+                                        onChange={() => togglePaidDecision(r.id)}
+                                    />
+                                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                    <span className={`text-xs font-medium ${isPaid ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                        {isPaid ? "Có lương" : "Không lương"}
+                                    </span>
+                                </label>
+                            ) : (
+                                // For processed requests, we might show saved status if backend returned it (not yet implemented in list)
+                                // But normally once approved, we can't change it here easily without re-opening.
+                                <span className="text-xs text-[var(--text-secondary)] italic">
+                                   -
+                                </span>
+                            )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             {r.status === "CHO_DUYET" && (
@@ -403,7 +445,6 @@ const LeavesHeadPage = () => {
                             )}
 
                             {(r.status === "DA_HUY" ||
-                              r.status === "DA_DUYET" ||
                               r.status === "TU_CHOI") && (
                               <button
                                 onClick={() => handleDelete(r.id)}
@@ -415,14 +456,17 @@ const LeavesHeadPage = () => {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               {/* Mobile Card List */}
               <div className="lg:hidden space-y-3">
-                {leaveRequests.map((r) => (
+                {leaveRequests.map((r) => {
+                     const isPaid = paidDecisions[r.id] !== undefined ? paidDecisions[r.id] : true;
+                     return (
                   <div key={r.id} className="p-4 space-y-4 bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-color)] active:scale-[0.99] transition-all">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -464,6 +508,27 @@ const LeavesHeadPage = () => {
                           "{r.reason || "Không có lý do"}"
                         </p>
                       </div>
+                      
+                      {/* Mobile Paid Toggle */}
+                       {r.status === "CHO_DUYET" && (
+                          <div className="flex items-center justify-between py-2 border-t border-b border-[var(--border-color)]">
+                            <span className="text-sm font-medium text-[var(--text-primary)]">Chế độ lương:</span>
+                            <label className="inline-flex items-center cursor-pointer gap-2">
+                                <span className={`text-xs font-medium mr-2 ${!isPaid ? 'text-[var(--text-secondary)]' : 'text-gray-400'}`}>Không</span>
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only peer"
+                                    checked={isPaid}
+                                    onChange={() => togglePaidDecision(r.id)}
+                                />
+                                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                <span className={`text-xs font-medium ${isPaid ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                    Có lương
+                                </span>
+                            </label>
+                          </div>
+                       )}
+
                     </div>
 
                     {r.status === "CHO_DUYET" && (
@@ -485,7 +550,6 @@ const LeavesHeadPage = () => {
                       </div>
                     )}
                     {(r.status === "DA_HUY" ||
-                      r.status === "DA_DUYET" ||
                       r.status === "TU_CHOI") && (
                       <button
                         onClick={() => handleDelete(r.id)}
@@ -495,7 +559,7 @@ const LeavesHeadPage = () => {
                       </button>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             </>
           )}

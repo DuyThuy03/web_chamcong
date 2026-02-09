@@ -1,9 +1,21 @@
-package models
+﻿package models
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 )
+
+type AttendanceEditHistory struct {
+	ID           int             `json:"id"`
+	CheckinID    int             `json:"checkin_id"`
+	EditorID     int             `json:"editor_id"`
+	EditorName   string          `json:"editor_name"`
+	OldValues    json.RawMessage `json:"old_values"`
+	NewValues    json.RawMessage `json:"new_values"`
+	ChangeReason string          `json:"change_reason,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+}
 
 type CheckIO struct {
     ID                 int             `json:"id"`
@@ -25,6 +37,9 @@ type CheckIO struct {
     LeaveStatus        sql.NullString  `json:"leave_status"`
     FactoryName        sql.NullString  `json:"factory_name,omitempty"`
     Note               sql.NullString  `json:"note,omitempty"`
+    WorkHours          sql.NullFloat64 `json:"work_hours,omitempty"`
+    WorkUnit           sql.NullFloat64 `json:"work_unit,omitempty"`
+    IsValid            bool            `json:"is_valid"`
     CheckinType        sql.NullString  `json:"checkin_type,omitempty"`
     CreatedAt          time.Time       `json:"created_at"`
     UpdatedAt          time.Time       `json:"updated_at"`
@@ -55,6 +70,8 @@ type CheckIOResponse struct {
     Note               *string    `json:"note,omitempty"`
     CheckinType        *string    `json:"checkin_type,omitempty"`
     DistanceFromOffice *float64   `json:"distance_from_office,omitempty"`
+    WorkUnit           *float64   `json:"work_unit,omitempty"`
+    WorkHours          *float64   `json:"work_hours,omitempty"`
 }
 type TodayAttendanceResponse struct {
 	UserID       int        `json:"user_id"`
@@ -89,4 +106,13 @@ type AttendanceHistoryFilter struct {
 	Status    *string    `form:"status"`
 	Page      int        `form:"page"`
 	PageSize  int        `form:"page_size"`
+}
+
+type UpdateAttendanceRequest struct {
+	CheckinTime  *time.Time `json:"checkin_time"`
+	CheckoutTime *time.Time `json:"checkout_time"`
+	WorkStatus   *string    `json:"work_status"`
+	WorkUnit     *float64   `json:"work_unit"`
+	IsValid      *bool      `json:"is_valid"`
+	Note         *string    `json:"note"`
 }

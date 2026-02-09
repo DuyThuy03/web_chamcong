@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN base_salary DECIMAL(15, 2) DEFAULT 0;

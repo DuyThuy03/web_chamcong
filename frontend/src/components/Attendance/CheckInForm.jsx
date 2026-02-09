@@ -11,6 +11,10 @@ import {
   ShieldCheck,
   User,
   Briefcase,
+  Users,
+  Search,
+  X,
+  Plus,
 } from "lucide-react";
 import CameraCapture from "../Camera/CameraCapture";
 import { attendanceService } from "../../service/attendance.service";
@@ -21,6 +25,7 @@ import {
   formatTime,
 } from "../../until/helper";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext"; // Import Toast
 
 const DigitalClock = () => {
   const [time, setTime] = useState(new Date());
@@ -53,6 +58,7 @@ const DigitalClock = () => {
 
 const CheckInForm = ({ onSuccess }) => {
   const { user } = useAuth();
+  const toast = useToast(); // Use Toast
   const [showCamera, setShowCamera] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
@@ -69,6 +75,12 @@ const CheckInForm = ({ onSuccess }) => {
   const [checkinType, setCheckinType] = useState("OFFICE");
   const [factoryName, setFactoryName] = useState("");
   const [note, setNote] = useState("");
+  
+  // Group Checkin State
+  const [accompanyingUsers, setAccompanyingUsers] = useState([]); // List of selected user objects
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
 
   useEffect(() => {
     loadShifts();
@@ -76,23 +88,43 @@ const CheckInForm = ({ onSuccess }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Update shift when checkinType changes
+  
   useEffect(() => {
     if (checkinType === "FACTORY" && shifts.length > 0) {
-        // Try to find a shift with "sáng" or "morning" in the name (case insensitive)
+  
         const morningShift = shifts.find(s => 
-            s.name.toLowerCase().includes("sáng") || 
-            s.name.toLowerCase().includes("morning")
+            s.name.toLowerCase().includes("Sáng")   
+            
         );
         
         if (morningShift) {
             setSelectedShift(morningShift.id);
         } else {
-            // Fallback to the first shift if no specific morning shift found
+            
             setSelectedShift(shifts[0].id);
         }
     }
   }, [checkinType, shifts]);
+
+  useEffect(() => {
+    if (checkinType === "FACTORY" && availableUsers.length === 0) {
+        loadUsers();
+    }
+    if (checkinType !== "FACTORY") {
+        setAccompanyingUsers([]);
+    }
+  }, [checkinType]);
+
+  const loadUsers = async () => {
+    try {
+        const res = await attendanceService.getMinimalUsers();
+        if (res.success) {
+            setAvailableUsers(res.data);
+        }
+    } catch (error) {
+        console.error("Failed to load users", error);
+    }
+  };
 
   const loadShifts = async () => {
     try {
@@ -163,7 +195,8 @@ const CheckInForm = ({ onSuccess }) => {
         location.accuracy,
         checkinType,
         factoryName,
-        note
+        note,
+        accompanyingUsers.map(u => u.id)
       );
       if (response.success && onSuccess) onSuccess(response.data);
     } catch (err) {
@@ -396,6 +429,43 @@ const CheckInForm = ({ onSuccess }) => {
                                 />
                              </div>
                         )}
+
+                        {/* Group Check-in UI */}
+                        {checkinType === "FACTORY" && (
+                             <div className="mt-4 p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg animate-in fade-in">
+                                <div className="flex justify-between items-center mb-3">
+                                    <label className="text-sm font-bold text-[var(--text-secondary)] flex items-center gap-2">
+                                        <Users size={16} /> Check-in Nhóm
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowUserModal(true)}
+                                        className="text-xs flex items-center gap-1 bg-[var(--accent-color)] text-black px-2 py-1 rounded-md font-bold  transition-colors hover:scale-110 hover:active:scale-95 "
+                                    >
+                                        <Plus size={14} /> Thêm người
+                                    </button>
+                                </div>
+                                
+                                {accompanyingUsers.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {accompanyingUsers.map(u => (
+                                            <div key={u.id} className="bg-white border border-slate-200 px-2 py-1 rounded-md flex items-center gap-2 text-sm shadow-sm">
+                                                <span className="font-medium text-slate-700">{u.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAccompanyingUsers(prev => prev.filter(user => user.id !== u.id))}
+                                                    className="text-slate-400 hover:text-red-500 transition-colors"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-400 italic">Chưa chọn thêm người đi cùng</p>
+                                )}
+                             </div>
+                        )}
                          
                          {/* Note Input (Use for any checkin type, optional) */}
                          <div className="mt-3">
@@ -466,9 +536,8 @@ const CheckInForm = ({ onSuccess }) => {
                       )}
                     </div>
 
-                      {/* Shift Input - Hidden for FACTORY checkin */}
-                    {checkinType !== "FACTORY" && (
-                        <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-[var(--accent-color)] transition-all hover:shadow-md hover:-translate-y-0.5">
+                      {/* Shift Input */}
+                      <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-sm hover:border-[var(--accent-color)] transition-all hover:shadow-md hover:-translate-y-0.5">
                         <label className="text-sm font-bold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                             <Briefcase size={18} className="text-indigo-500" /> Chọn
                             ca làm việc *
@@ -527,8 +596,7 @@ const CheckInForm = ({ onSuccess }) => {
                             </div>
                             </div>
                         )}
-                        </div>
-                    )}
+                      </div>
 
                     {/* Action Button */}
                     <div className="mt-auto">
@@ -605,6 +673,89 @@ const CheckInForm = ({ onSuccess }) => {
             userName={user?.name}
             currentAddress={address}
           />
+        </div>
+      )}
+      
+      {/* User Selection Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-[var(--bg-secondary)] rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden border-2 border-[var(--accent-color)]">
+                <div className="p-4 border-b flex justify-between items-center bg-[var(--bg-secondary)]">
+                    <h3 className="font-bold text-lg text-[var(--text-primary)] bg-[var(--bg-secondary)]">Chọn người đi cùng</h3>
+                    <button type="button" onClick={() => setShowUserModal(false)} className="text-slate-500 hover:text-red-500 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+                
+                <div className="p-4 border-b">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                            type="text"
+                            placeholder="Tìm kiếm nhân viên..."
+                            value={userSearch}
+                            onChange={(e) => setUserSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] outline-none"
+                        />
+                    </div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    {availableUsers
+                        .filter(u => u.id !== user?.id && u.name.toLowerCase().includes(userSearch.toLowerCase()))
+                        .map(u => {
+                            const isSelected = accompanyingUsers.some(sel => sel.id === u.id);
+                            const isCheckedIn = u.has_checked_in;
+
+                            return (
+                                <div 
+                                    key={u.id}
+                                    onClick={() => {
+                                        if (isCheckedIn) {
+                                            toast.error(`Nhân viên ${u.name} đã check-in hôm nay`);
+                                            return;
+                                        }
+                                        if (isSelected) {
+                                            setAccompanyingUsers(prev => prev.filter(x => x.id !== u.id));
+                                        } else {
+                                            setAccompanyingUsers(prev => [...prev, u]);
+                                        }
+                                    }}
+                                    className={`
+                                        p-3 rounded-lg flex items-center justify-between cursor-pointer transition-colors border
+                                        ${isCheckedIn 
+                                            ? 'bg-[var(--bg-secondary)] border-[var(--border-color)] opacity-60 cursor-not-allowed' 
+                                            : isSelected 
+                                                ? 'bg-[var(--bg-secondary)] dark:bg-blue-900/20 border-[var(--border-color)] dark:border-blue-800 border-2 border-[var(--text-secondary)]' 
+                                                : 'hover:bg-[var(--bg-secondary)] border-transparent'
+                                        }
+                                    `}
+                                >
+                                    <div>
+                                        <p className="font-bold text-[var(--text-primary)]">{u.name}</p>
+                                        <p className="text-xs text-[var(--text-secondary)]">{u.department_name || "Chưa phân phòng ban"}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {isCheckedIn && <span className="text-xs font-bold text-[var(--text-secondary)] bg-[var(--bg-primary)] px-2 py-0.5 rounded border border-[var(--border-color)]">Đã check-in</span>}
+                                        {isSelected && <CheckCircle size={20} className="text-[var(--accent-color)]" />}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    }
+                    {availableUsers.length === 0 && <p className="text-center text-[var(--text-secondary)] py-4">Đang tải danh sách...</p>}
+                </div>
+                
+                <div className="p-4 border-t border-[var(--border-color)] bg-[var(--bg-secondary)] flex justify-end">
+                    <button 
+                        type="button"
+                        onClick={() => setShowUserModal(false)}
+                        className="bg-[var(--accent-color)] text-black px-6 py-2 rounded-lg font-bold  transition-colors shadow-md cursor-pointer hover:scale-110 active:scale-95"
+                    >
+                        Xong ({accompanyingUsers.length})
+                    </button>
+                </div>
+            </div>
         </div>
       )}
     </div>

@@ -1,8 +1,9 @@
-package services
+﻿package services
 
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,7 +40,6 @@ func NewAttendanceService(
     }
 }
 
-// Helper function to convert file path to URL
 func (s *AttendanceService) convertPathToURL(path string) string {
 	if path == "" {
 		return ""
@@ -47,7 +47,7 @@ func (s *AttendanceService) convertPathToURL(path string) string {
 	if strings.HasPrefix(path, "http") {
 		return path
 	}
-	// Replace backslashes with forward slashes
+	
 	path = strings.ReplaceAll(path, "\\", "/")
 	// Add /uploads/ prefix if not already present
 	if !strings.HasPrefix(path, "/uploads/") && !strings.HasPrefix(path, "uploads/") {
@@ -68,6 +68,7 @@ func (s *AttendanceService) CheckIn(
     checkinType string,
     factoryName string,
     note string,
+    accompanyingUserIDs []int,
 ) (*models.CheckIOResponse, error) {
     now := time.Now()
     today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
@@ -77,17 +78,7 @@ func (s *AttendanceService) CheckIn(
         checkinType = "OFFICE"
     }
 
-    // Check if already checked in today
-    existing, err := s.repo.GetByUserAndDay(userID, today)
-    if err != nil && err != sql.ErrNoRows {
-        return nil, err
-    }
-    
-    if existing != nil && existing.CheckinTime.Valid {
-        return nil, errors.New("đã check-in hôm nay")
-    }
-
-    // Logic based on Checkin Type
+    // Check for factory name requirement if check-in type is FACTORY
     if checkinType == "FACTORY" {
         if factoryName == "" {
              return nil, errors.New("tên nhà máy không được để trống khi check-in tại nhà máy")
@@ -104,7 +95,7 @@ func (s *AttendanceService) CheckIn(
         }
     }
 
-    // Process image with overlay
+    // Process image with overlay ONCE
     overlayInfo := OverlayInfo{
         UserName:  userName,
         Timestamp: now,
@@ -119,68 +110,95 @@ func (s *AttendanceService) CheckIn(
         return nil, fmt.Errorf("failed to process image: %w", err)
     }
 
-    // Determine work status
-    workStatus := "ON_TIME"
-    if checkinType == "OFFICE" {
-        // Only check shift constraints for OFFICE
-        workStatus = s.determineWorkStatus(now, shiftID)
-    }
+    // Combine users
+    allUserIDs := append([]int{userID}, accompanyingUserIDs...)
+    var primaryResult *models.CheckIOResponse
 
-    // Save to database
-    var checkIO *models.CheckIO
-    
-    if existing != nil {
-        // Update existing record
-        checkIO = existing
-        checkIO.CheckinTime = sql.NullTime{Time: now, Valid: true}
-        checkIO.CheckinImage = sql.NullString{String: imagePath, Valid: true}
-        checkIO.CheckinLatitude = sql.NullFloat64{Float64: latitude, Valid: true}
-        checkIO.CheckinLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
-        checkIO.CheckinAddress = sql.NullString{String: address, Valid: true}
-        checkIO.Device = sql.NullString{String: device, Valid: true}
-        checkIO.ShiftID = sql.NullInt64{Int64: int64(shiftID), Valid: true}
-        checkIO.WorkStatus = sql.NullString{String: workStatus, Valid: true}
-        checkIO.CheckinType = sql.NullString{String: checkinType, Valid: true}
-        checkIO.FactoryName = sql.NullString{String: factoryName, Valid: true}
-        checkIO.Note = sql.NullString{String: note, Valid: true}
-        err = s.repo.Update(checkIO)
-    } else {
-        // Create new record
-        checkIO = &models.CheckIO{
-            UserID:           userID,
-            Day:              today,
-            CheckinTime:      sql.NullTime{Time: now, Valid: true},
-            CheckinImage:     sql.NullString{String: imagePath, Valid: true},
-            CheckinLatitude:  sql.NullFloat64{Float64: latitude, Valid: true},
-            CheckinLongitude: sql.NullFloat64{Float64: longitude, Valid: true},
-            CheckinAddress:   sql.NullString{String: address, Valid: true},
-            Device:           sql.NullString{String: device, Valid: true},
-            ShiftID:          sql.NullInt64{Int64: int64(shiftID), Valid: true},
-            WorkStatus:       sql.NullString{String: workStatus, Valid: true},
-            LeaveStatus:     sql.NullString{},
-            CheckinType:      sql.NullString{String: checkinType, Valid: true},
-            FactoryName:      sql.NullString{String: factoryName, Valid: true},
-            Note:             sql.NullString{String: note, Valid: true},
+    for _, uid := range allUserIDs {
+        // Check if already checked in today
+        existing, err := s.repo.GetByUserAndDay(uid, today)
+        if err != nil && err != sql.ErrNoRows {
+            if uid == userID {
+                 return nil, err
+            }
+            continue
         }
-        err = s.repo.Create(checkIO)
+        
+        if existing != nil && existing.CheckinTime.Valid {
+            if uid == userID {
+                 return nil, errors.New("đã check-in hôm nay")
+            }
+            continue
+        }
+
+        // Determine work status
+        workStatus := s.determineWorkStatus(now, shiftID)
+
+        // Save to database
+        var checkIO *models.CheckIO
+        
+        if existing != nil {
+            // Update existing record
+            checkIO = existing
+            checkIO.CheckinTime = sql.NullTime{Time: now, Valid: true}
+            checkIO.CheckinImage = sql.NullString{String: imagePath, Valid: true}
+            checkIO.CheckinLatitude = sql.NullFloat64{Float64: latitude, Valid: true}
+            checkIO.CheckinLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
+            checkIO.CheckinAddress = sql.NullString{String: address, Valid: true}
+            checkIO.Device = sql.NullString{String: device, Valid: true}
+            checkIO.ShiftID = sql.NullInt64{Int64: int64(shiftID), Valid: true}
+            checkIO.WorkStatus = sql.NullString{String: workStatus, Valid: true}
+            checkIO.CheckinType = sql.NullString{String: checkinType, Valid: true}
+            checkIO.FactoryName = sql.NullString{String: factoryName, Valid: true}
+            checkIO.Note = sql.NullString{String: note, Valid: true}
+            err = s.repo.Update(checkIO)
+        } else {
+            // Create new record
+            checkIO = &models.CheckIO{
+                UserID:           uid,
+                Day:              today,
+                CheckinTime:      sql.NullTime{Time: now, Valid: true},
+                CheckinImage:     sql.NullString{String: imagePath, Valid: true},
+                CheckinLatitude:  sql.NullFloat64{Float64: latitude, Valid: true},
+                CheckinLongitude: sql.NullFloat64{Float64: longitude, Valid: true},
+                CheckinAddress:   sql.NullString{String: address, Valid: true},
+                Device:           sql.NullString{String: device, Valid: true},
+                ShiftID:          sql.NullInt64{Int64: int64(shiftID), Valid: true},
+                WorkStatus:       sql.NullString{String: workStatus, Valid: true},
+                LeaveStatus:     sql.NullString{},
+                CheckinType:      sql.NullString{String: checkinType, Valid: true},
+                FactoryName:      sql.NullString{String: factoryName, Valid: true},
+                Note:             sql.NullString{String: note, Valid: true},
+                IsValid:          true,
+            }
+            err = s.repo.Create(checkIO)
+        }
+
+        if err != nil {
+            if uid == userID {
+                return nil, err
+            }
+            continue
+        }
+
+        result, err := s.repo.GetByID(checkIO.ID)
+        if err == nil {
+            ws.Emit(
+                s.hub,
+                ws.EventAttendanceCheckin,
+                result,
+            )
+            if uid == userID {
+                primaryResult = result
+            }
+        }
     }
 
-    if err != nil {
-        return nil, err
+    if primaryResult == nil {
+         return nil, errors.New("check-in failed for primary user")
     }
-	result, err := s.repo.GetByID(checkIO.ID)
-if err != nil {
-	return nil, err
-}
 
-
-ws.Emit(
-	s.hub,
-	ws.EventAttendanceCheckin,
-	result,
-)
-
-    return result, nil
+    return primaryResult, nil
 }
 //hàm checkout tương tự như checkin, chỉ khác là cập nhật các trường checkout
 func (s *AttendanceService) CheckOut(
@@ -194,55 +212,20 @@ func (s *AttendanceService) CheckOut(
     checkinType string,
     factoryName string,
     note string,
+    accompanyingUserIDs []int,
 ) (*models.CheckIOResponse, error) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)	
-	// Lấy bản ghi CheckIO hiện tại
-	existing, err := s.repo.GetByUserAndDay(userID, today)
-	if err != nil {
-		return nil, err
-	}	
-	if existing == nil || !existing.CheckinTime.Valid {
-		return nil, errors.New("chưa check-in hôm nay")
-	}
-	if existing.CheckoutTime.Valid {
-		return nil, errors.New("đã check-out hôm nay")
-	}
 
-    // Default or passed checkinType
     if checkinType == "" {
-        // If not specified, maybe default to OFFICE? 
-        // Or if the user doesn't change it, use the existing one?
-        // But user might want to switch. 
-        // Assume Frontend sends the selected option. If empty, default "OFFICE".
         checkinType = "OFFICE"
     }
 
-	// Logic CheckinType
-    if checkinType == "FACTORY" {
-         if factoryName == "" {
-             // If existing is already factory and name is set, maybe reuse?
-             // But safer to require it again if type is passed as Factory
-             if existing.FactoryName.String == "" {
-                return nil, errors.New("tên nhà máy không được để trống khi check-out tại nhà máy")
-             }
-             // Use existing factory name if not provided but type matches?
-             // Let's enforce providing it or using existing if type matches.
-             factoryName = existing.FactoryName.String
-         }
-    } else {
-        // OFFICE
-        // Xác thực vị trí
-        isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
-        if !isValid {
-            if distance == 0 {
-                return nil, fmt.Errorf("Tín hiệu GPS yếu (Độ lệch: %.0fm > %.0fm). Vui lòng ra nơi thoáng hơn.", accuracy, s.locationService.accuracy)
-            }
-            return nil, fmt.Errorf("vị trí check-out ngoài phạm vi cho phép (%.0fm từ văn phòng)", distance)
-        }
+    if len(accompanyingUserIDs) > 0 && checkinType != "FACTORY" {
+        return nil, errors.New("chức năng check-out nhóm chỉ áp dụng cho Nhà máy")
     }
 
-	// Xử lý hình ảnh với overlay
+	// Process image ONCE
 	overlayInfo := OverlayInfo{
 		UserName:  userName,
 		Timestamp: now,
@@ -256,40 +239,106 @@ func (s *AttendanceService) CheckOut(
 		return nil, fmt.Errorf("failed to process image: %w", err)
 	}
 
-	// Update existing record with checkout data
-	existing.CheckoutTime = sql.NullTime{Time: now, Valid: true}
-	existing.CheckoutImage = sql.NullString{String: imagePath, Valid: true}
-	existing.CheckoutLatitude = sql.NullFloat64{Float64: latitude, Valid: true}
-	existing.CheckoutLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
-	existing.CheckoutAddress = sql.NullString{String: address, Valid: true}
-	existing.Device = sql.NullString{String: device, Valid: true}
+    allUserIDs := append([]int{userID}, accompanyingUserIDs...)
+    var primaryResult *models.CheckIOResponse
+
+    for _, uid := range allUserIDs {
+        // Get existing record
+    	existing, err := s.repo.GetByUserAndDay(uid, today)
+    	if err != nil {
+            if uid == userID {
+                 return nil, err
+            }
+            continue
+    	}	
+    	if existing == nil || !existing.CheckinTime.Valid {
+            if uid == userID {
+                 return nil, errors.New("chưa check-in hôm nay")
+            }
+            continue
+    	}
+    	if existing.CheckoutTime.Valid {
+            if uid == userID {
+                 return nil, errors.New("đã check-out hôm nay")
+            }
+            continue
+    	}
+
+        // Validate Logic
+        if uid == userID {
+            if checkinType == "FACTORY" {
+                 if factoryName == "" {
+                     if existing.FactoryName.String == "" {
+                        return nil, errors.New("tên nhà máy không được để trống khi check-out tại nhà máy")
+                     }
+                     // Force use existing if not provided but require it logically?
+                     // existing.FactoryName.String is safe fallback
+                     factoryName = existing.FactoryName.String
+                 }
+            } else {
+                isValid, distance := s.locationService.IsWithinOfficeRadius(latitude, longitude, accuracy)
+                if !isValid {
+                    if distance == 0 {
+                        return nil, fmt.Errorf("Tín hiệu GPS yếu (Độ lệch: %.0fm > %.0fm).", accuracy, s.locationService.accuracy)
+                    }
+                    return nil, fmt.Errorf("vị trí check-out ngoài phạm vi (%.0fm)", distance)
+                }
+            }
+        }
+
+    	// Update existing record with checkout data
+    	existing.CheckoutTime = sql.NullTime{Time: now, Valid: true}
+    	existing.CheckoutImage = sql.NullString{String: imagePath, Valid: true}
+    	existing.CheckoutLatitude = sql.NullFloat64{Float64: latitude, Valid: true}
+    	existing.CheckoutLongitude = sql.NullFloat64{Float64: longitude, Valid: true}
+    	existing.CheckoutAddress = sql.NullString{String: address, Valid: true}
+    	existing.Device = sql.NullString{String: device, Valid: true}
+        
+        existing.CheckinType = sql.NullString{String: checkinType, Valid: true}
+        if factoryName != "" {
+            existing.FactoryName = sql.NullString{String: factoryName, Valid: true}
+        }
+        if note != "" {
+            existing.Note = sql.NullString{String: note, Valid: true}
+        }
+        
+        duration := now.Sub(existing.CheckinTime.Time).Hours()
+        workUnit := 0.0
+        if duration >= 8 {
+            workUnit = 1.0
+        } else if duration >= 4 {
+            workUnit = 0.5
+        }
     
-    // Update type/factory/note if changed or set
-    existing.CheckinType = sql.NullString{String: checkinType, Valid: true}
-    if factoryName != "" {
-        existing.FactoryName = sql.NullString{String: factoryName, Valid: true}
-    }
-    if note != "" {
-        // Append or replace? "thêm vào ghi chú"
-        existing.Note = sql.NullString{String: note, Valid: true} // Replace likely intended
-    } else {
-         // Keep existing? existing.Note
-    }
+        existing.WorkHours = sql.NullFloat64{Float64: duration, Valid: true}
+        existing.WorkUnit = sql.NullFloat64{Float64: workUnit, Valid: true}
+        existing.IsValid = true
     
-	err = s.repo.Update(existing)
-	if err != nil {
-		return nil, err
-	}
- result , err := s.repo.GetByID(existing.ID)
- if err != nil {
-	 return nil, err
- }
- ws.Emit(
-	s.hub,
-	ws.EventAttendanceCheckout,
-	result,
-)
-	return result, nil
+    	err = s.repo.Update(existing)
+    	if err != nil {
+    		if uid == userID {
+                 return nil, err
+            }
+            continue
+    	}
+        
+        result, err := s.repo.GetByID(existing.ID)
+        if err == nil {
+        	ws.Emit(
+        		s.hub,
+        		ws.EventAttendanceCheckout,
+        		result,
+        	)
+            if uid == userID {
+                primaryResult = result
+            }
+        }
+    }
+
+    if primaryResult == nil {
+         return nil, errors.New("check-out failed for primary user")
+    }
+	return primaryResult, nil
 }
 //hàm Gethistory tương tự như GetByID nhưng lấy theo userID và khoảng thời gian
 func (s *AttendanceService) GetHistory(
@@ -400,9 +449,6 @@ func (s *AttendanceService) GetByUserAndDay(
 	return resp, nil
 }
 
-	
-
-
 func (s *AttendanceService) determineWorkStatus(checkTime time.Time, shiftID int) string {
     // This is simplified - you should get shift info from DB
     // For now, assume 08:15 is late threshold
@@ -475,7 +521,6 @@ func (s *AttendanceService) GetMonthlySummary(
 		return nil, errors.New("permission denied")
 	}
 
-	
 	repoResults, err := s.repo.GetMonthlyAttendanceSummary(
 		ctx,
 		year,
@@ -486,20 +531,183 @@ func (s *AttendanceService) GetMonthlySummary(
 		return nil, err
 	}
 
+    // Get Daily Details
+    detailsRaw, err := s.repo.GetMonthlyDailyDetails(
+        ctx,
+        year,
+        monthNum,
+        filterDepartmentID,
+    )
+    if err != nil {
+        return nil, err
+    }
+
+    // Map details by UserID -> Date -> Detail
+    detailsMap := make(map[int]map[string]models.DailyAttendanceDetail)
+    for _, row := range detailsRaw {
+        if _, ok := detailsMap[row.UserID]; !ok {
+            detailsMap[row.UserID] = make(map[string]models.DailyAttendanceDetail)
+        }
+        
+        dateStr := row.Day.Format("2006-01-02")
+        
+        detail := models.DailyAttendanceDetail{
+            IsLate: row.WorkStatus.String == "LATE",
+        }
+        
+        if row.WorkUnit.Valid {
+            detail.WorkUnit = row.WorkUnit.Float64
+        }
+        if row.LeaveType.Valid {
+            detail.LeaveType = row.LeaveType.String
+        }
+        if row.OTHours.Valid {
+            detail.OvertimeHours = row.OTHours.Float64
+        }
+        if row.Note.Valid {
+            detail.Note = row.Note.String
+        }
+        if row.CheckinType.Valid {
+            detail.CheckinType = row.CheckinType.String
+        }
+        if row.FactoryName.Valid {
+            detail.FactoryName = row.FactoryName.String
+        }
+        if row.IsPaidLeave.Valid {
+            detail.IsPaidLeave = row.IsPaidLeave.Bool
+        }
+        if row.OTWeighted.Valid {
+            detail.OTHoursWeighted = row.OTWeighted.Float64
+        }
+
+        detailsMap[row.UserID][dateStr] = detail
+    }
+
 	results := make([]models.MonthlySummaryResponse, 0, len(repoResults))
 	for _, r := range repoResults {
-		results = append(results, models.MonthlySummaryResponse{
-			UserID:         r.UserID,
-			UserName:       r.UserName,
-			DepartmentName: r.DepartmentName,
-			TotalDays:      r.TotalDays,
-			WorkingDays:    r.WorkingDays,
-			AbsentDays:     r.AbsentDays,
-			LeaveDays:      r.LeaveDays,
-			LateDays:       r.LateDays,
+		
+        userDailyDetails := detailsMap[r.UserID]
+        if userDailyDetails == nil {
+            userDailyDetails = make(map[string]models.DailyAttendanceDetail)
+        }
+
+        results = append(results, models.MonthlySummaryResponse{
+			UserID:                r.UserID,
+			UserName:              r.UserName,
+			DepartmentName:        r.DepartmentName,
+			TotalDays:             r.TotalDays,
+			TotalStandardWorkDays: r.TotalStandardWorkDays,
+			TotalOTHours:          r.TotalOTHours,
+			TotalPaidLeaveDays:    r.TotalPaidLeaveDays,
+			TotalWorkDays:         r.TotalWorkDays,
+			AbsentDays:            int(r.AbsentDays),
+			LateDays:              r.LateDays,
+			BaseSalary:            r.BaseSalary,
+			TotalBaseSalary:       r.TotalBaseSalary,
+			TotalOTSalary:         r.TotalOTSalary,
+			TotalSalary:           r.TotalSalary,
+            DailyDetails:          userDailyDetails,
 		})
 	}
 
 	return results, nil
 }
 
+func (s *AttendanceService) UpdateAttendance(
+    requesterRole string, 
+    requesterDeptID *int,
+	requesterID int,
+    attendanceID int, 
+    req models.UpdateAttendanceRequest,
+) (*models.CheckIOResponse, error) {
+
+    // 1. Get raw record
+    record, err := s.repo.GetCheckIOByID(attendanceID)
+    if err != nil {
+        return nil, err
+    }
+    if record == nil {
+        return nil, errors.New("attendance record not found")
+    }
+
+    // 2. Permission Check
+    if requesterRole == "Nhân viên" {
+        return nil, errors.New("bạn không có quyền chỉnh sửa chấm công")
+    }
+
+    if requesterRole == "Trưởng phòng" {
+        if requesterDeptID == nil {
+             return nil, errors.New("không xác định được phòng ban của trưởng phòng")
+        }
+        // Check if user belongs to this department
+        inDept, err := s.repo.IsUserInDepartment(record.UserID, *requesterDeptID)
+        if err != nil {
+             return nil, err
+        }
+        if !inDept {
+             return nil, errors.New("bạn chỉ có thể chỉnh sửa nhân viên trong phòng ban của mình")
+        }
+    }
+  
+	// Capture Old Values
+	oldValuesMap := map[string]interface{}{}
+	if record.WorkUnit.Valid {
+		oldValuesMap["work_unit"] = record.WorkUnit.Float64
+	}
+	oldValuesMap["is_valid"] = record.IsValid
+	if record.Note.Valid {
+		oldValuesMap["note"] = record.Note.String
+	}
+	oldJSON, _ := json.Marshal(oldValuesMap)
+
+    // 3. Apply Updates
+    if req.WorkUnit != nil {
+        record.WorkUnit = sql.NullFloat64{Float64: *req.WorkUnit, Valid: true}
+    }
+    
+    if req.IsValid != nil {
+        record.IsValid = *req.IsValid
+    }
+    if req.Note != nil {
+        record.Note = sql.NullString{String: *req.Note, Valid: true}
+    }
+
+	// Capture New Values
+	newValuesMap := map[string]interface{}{}
+	if record.WorkUnit.Valid {
+		newValuesMap["work_unit"] = record.WorkUnit.Float64
+	}
+	newValuesMap["is_valid"] = record.IsValid
+	if record.Note.Valid {
+		newValuesMap["note"] = record.Note.String
+	}
+	newJSON, _ := json.Marshal(newValuesMap)
+
+	// Save History
+	history := models.AttendanceEditHistory{
+		CheckinID: attendanceID,
+		EditorID: requesterID,
+		OldValues: oldJSON,
+		NewValues: newJSON, 
+		// ChangeReason: req.Reason // If we add reason to request later
+	}
+	// We can ignore error or log it? Best to fail if history fails? 
+	// Or proceed. Let's try to save.
+	if err := s.repo.InsertEditHistory(history); err != nil {
+		// Just log error but continue? Or fail?
+		fmt.Printf("Failed to insert history: %v\n", err)
+	}
+
+    // 4. Save
+    err = s.repo.Update(record)
+    if err != nil {
+        return nil, err
+    }
+
+    // 5. Return updated response
+    return s.repo.GetByID(attendanceID)
+}
+
+func (s *AttendanceService) GetAttendanceHistoryDetails(attendanceID int) ([]models.AttendanceEditHistory, error) {
+	return s.repo.GetEditHistory(attendanceID)
+}

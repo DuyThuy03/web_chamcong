@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"net/http"
@@ -66,7 +66,6 @@ if role == "Trưởng phòng" {
             })
             return
         }
-  
 
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get users")
@@ -83,7 +82,6 @@ if role == "Trưởng phòng" {
 
     utils.PaginatedSuccessResponse(c, http.StatusOK, users, pagination)
 }
-
 
 func (h *UserHandler) GetByID(c *gin.Context) {
     id, err := strconv.Atoi(c.Param("id"))
@@ -121,6 +119,8 @@ type UpdateUserRequest struct {
     Role         *string `json:"role"`
     DepartmentID *int    `json:"department_id"`
     Status       *string `json:"status"`
+    BaseSalary   *float64 `json:"base_salary"`
+    NewPassword  *string  `json:"new_password"`
 }
 
 func (h *UserHandler) Update(c *gin.Context) {
@@ -136,28 +136,34 @@ func (h *UserHandler) Update(c *gin.Context) {
         return
     }
 
-    // Get existing user (using GetUserByID for update)
     existing, err := h.userRepo.GetUserByID(id)
     if err != nil || existing == nil {
         utils.ErrorResponse(c, http.StatusNotFound, "User not found")
         return
     }
 
-    // Get current user info
     currentUserID, _ := middleware.GetUserID(c)
     currentRole, _ := middleware.GetUserRole(c)
 
-    // Build update user object with existing values
     user := &models.User{
         ID:       id,
         Name:     req.Name,
         Email:    req.Email,
-        Password: existing.Password, // Keep existing password
+        Password: existing.Password, 
+        BaseSalary: existing.BaseSalary,
     }
 
-    // Update optional fields
+    if req.NewPassword != nil && *req.NewPassword != "" {
+        hashed, err := utils.HashPassword(*req.NewPassword)
+        if err != nil {
+            utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi mã hóa mật khẩu")
+            return
+        }
+        user.Password = hashed
+    }
+
     if req.DateOfBirth != nil {
-        // Parse date string to time.Time
+        
         parsedDate, err := time.Parse("2006-01-02", *req.DateOfBirth)
         if err == nil {
             user.DateOfBirth.Time = parsedDate
@@ -190,14 +196,14 @@ func (h *UserHandler) Update(c *gin.Context) {
         user.PhoneNumber = existing.PhoneNumber
     }
 
-    // Check permissions for role, department, and status updates
     if currentUserID == id {
-        // User updating their own info - can't change role, department, or status
+        
         user.Role = existing.Role
         user.DepartmentID = existing.DepartmentID
         user.Status = existing.Status
+        user.BaseSalary = existing.BaseSalary 
     } else if currentRole == "Giám đốc" || currentRole == "Quản lý" {
-        // Directors and managers can change everything
+        
         if req.Role != nil {
             user.Role = *req.Role
         } else {
@@ -216,9 +222,12 @@ func (h *UserHandler) Update(c *gin.Context) {
         } else {
             user.Status = existing.Status
         }
+
+        if req.BaseSalary != nil {
+            user.BaseSalary = *req.BaseSalary
+        }
     } else if currentRole == "Trưởng phòng" {
-        // Department leaders can only update basic info of their department members
-        // Cannot change role, department, or status
+
         user.Role = existing.Role
         user.DepartmentID = existing.DepartmentID
         user.Status = existing.Status
@@ -227,7 +236,7 @@ func (h *UserHandler) Update(c *gin.Context) {
         return
     }
 
-    err = h.userRepo.UserUpdateProfile(user)
+    err = h.userRepo.Update(user)
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to update user: "+err.Error())
         return
@@ -244,9 +253,9 @@ type UpdateProfileRequest struct {
     Address     *string `json:"address"`
     Gender      *string `json:"gender"`
     PhoneNumber *string `json:"phone_number"`
+    Password    *string `json:"password"`
 }
 
-// UpdateProfile allows users to update their own profile (cannot change role, department, status)
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
     currentUserID, _ := middleware.GetUserID(c)
 
@@ -256,27 +265,35 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
         return
     }
 
-    // Get existing user (using GetUserByID for update)
     existing, err := h.userRepo.GetUserByID(currentUserID)
     if err != nil || existing == nil {
         utils.ErrorResponse(c, http.StatusNotFound, "Không tìm thấy thông tin người dùng")
         return
     }
 
-    // Build update user object - preserve role, department, status
     user := &models.User{
         ID:           currentUserID,
         Name:         req.Name,
         Email:        req.Email,
-        Password:     existing.Password,
+        Password:     existing.Password, // Keep existing password by default
         Role:         existing.Role,
         DepartmentID: existing.DepartmentID,
         Status:       existing.Status,
+        BaseSalary:   existing.BaseSalary,
     }
 
-    // Update optional fields
+    // Process password update
+    if req.Password != nil && *req.Password != "" {
+        hashed, err := utils.HashPassword(*req.Password)
+        if err != nil {
+            utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi mã hóa mật khẩu")
+            return
+        }
+        user.Password = hashed
+    }
+
     if req.DateOfBirth != nil {
-        // Parse date string to time.Time
+        
         parsedDate, err := time.Parse("2006-01-02", *req.DateOfBirth)
         if err == nil {
             user.DateOfBirth.Time = parsedDate
@@ -309,7 +326,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
         user.PhoneNumber = existing.PhoneNumber
     }
 
-    err = h.userRepo.UserUpdateProfile(user)
+    err = h.userRepo.Update(user)
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Cập nhật thông tin thất bại: "+err.Error())
         return
@@ -318,6 +335,15 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
     updated, _ := h.userRepo.GetByID(currentUserID)
     utils.SuccessMessageResponse(c, http.StatusOK, "Cập nhật thông tin cá nhân thành công", updated)
 }
+func (h *UserHandler) GetMinimalList(c *gin.Context) {
+    users, err := h.userRepo.GetMinimalList()
+    if err != nil {
+        utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to fetch user list")
+        return
+    }
+    utils.SuccessResponse(c, http.StatusOK, users)
+}
+
 func (h *AuthHandler) Logout(c *gin.Context) {
     c.SetCookie("access_token", "", -1, "/", "", true, true)
     c.SetCookie("refresh_token", "", -1, "/", "", true, true)

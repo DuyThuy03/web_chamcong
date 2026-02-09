@@ -173,9 +173,24 @@ const DepartmentHeadDashboard = () => {
     }
   };
 
+  // State to track paid decision for each pending request
+  const [paidDecisions, setPaidDecisions] = useState({});
+
+  const togglePaidDecision = (id) => {
+    setPaidDecisions(prev => ({
+        ...prev,
+        [id]: !prev[id] // Toggle between true/false
+    }));
+  };
+
   const handleApproveLeave = async (leaveId) => {
+    // Default to true (paid) if not explicitly set
+    const isPaid = paidDecisions[leaveId] !== undefined ? paidDecisions[leaveId] : true;
+
     try {
-      await api.put(`/leaves/${leaveId}/approve`);
+      await api.put(`/leaves/${leaveId}/approve`, {
+          paid: isPaid
+      });
       // Update local state without refetching
       // Removing from list will automatically bring the next item (index 5) into view (index 4)
       setPendingLeaveRequests((prev) => prev.filter((l) => l.id !== leaveId));
@@ -183,7 +198,7 @@ const DepartmentHeadDashboard = () => {
         ...prev,
         pendingLeaves: Math.max(0, prev.pendingLeaves - 1),
       }));
-      toast.success("Đã duyệt đơn nghỉ phép");
+       toast.success(`Đã duyệt đơn (${isPaid ? 'Có lương' : 'Không lương'})`);
     } catch (error) {
       console.error(error);
       toast.error("Có lỗi xảy ra khi duyệt đơn");
@@ -423,7 +438,9 @@ const DepartmentHeadDashboard = () => {
                   <p className="text-xs">Không có yêu cầu nào đang chờ duyệt</p>
                 </div>
               ) : (
-                pendingLeaveRequests.slice(0, 5).map((leave) => (
+                pendingLeaveRequests.slice(0, 5).map((leave) => {
+                  const isPaid = paidDecisions[leave.id] !== undefined ? paidDecisions[leave.id] : true;
+                  return (
                   <div
                     key={leave.id}
                     className="p-3 border border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)] hover:border-[var(--accent-color)] transition-all group"
@@ -457,6 +474,23 @@ const DepartmentHeadDashboard = () => {
                       <p className="text-xs text-[var(--text-secondary)] italic mt-1 line-clamp-2">
                         "{leave.reason}"
                       </p>
+                      
+                       <div className="flex items-center mt-2.5">
+                            <span className="text-[11px] font-medium text-[var(--text-secondary)] mr-2">Chế độ lương:</span>
+                            <label className="inline-flex items-center cursor-pointer gap-2">
+                                <span className={`text-[10px] font-bold ${!isPaid ? 'text-[var(--text-secondary)]' : 'text-gray-300'}`}>K</span>
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only peer"
+                                    checked={isPaid}
+                                    onChange={() => togglePaidDecision(leave.id)}
+                                />
+                                <div className="relative w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                <span className={`text-[10px] font-bold ${isPaid ? 'text-emerald-600' : 'text-gray-300'}`}>
+                                    C
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
                     <div className="flex gap-2 pl-[42px]">
@@ -474,7 +508,7 @@ const DepartmentHeadDashboard = () => {
                       </button>
                     </div>
                   </div>
-                ))
+                )})
               )}
             </div>
           </div>

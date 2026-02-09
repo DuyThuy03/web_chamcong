@@ -11,15 +11,20 @@ import HistoryPage from "./pages/employee/HistoryPage";
 import LeaveRequestPage from "./pages/employee/LeaveRequestPage";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import DepartmentHeadDashboard from "./pages/DepartmentHead/DepartmentHeadDashboard";
+import OvertimeRequestPage from "./pages/employee/OvertimeRequestPage";
+import OvertimeApprovalPage from "./pages/DepartmentHead/OvertimeApprovalPage";
 
 import MemberListPage from "./pages/DepartmentHead/MemberListPage";
 import LeavesHeadPage from "./pages/DepartmentHead/Leaves-headPage";
 import History from "./pages/DepartmentHead/History";
+import AnalyticsPage from "./pages/DepartmentHead/AnalyticsPage";
 
 import MemberList from "./pages/manager/MemberList";
 import HistoryManager from "./pages/manager/History";
 import SummaryPage from "./pages/manager/ManagerDashboard";
 import LeavesPage from "./pages/manager/leaves_manager";
+import OvertimeManagerPage from "./pages/manager/OvertimeManagerPage";
+import ManagerAnalyticsPage from "./pages/manager/AnalyticsPage";
 
 import Layout from "./components/Layout/Layout";
 import PrivateRoute from "./PrivateRouter/PrivateRouter";
@@ -142,6 +147,21 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/overtime-request"
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  "Nhân viên",
+                  "Trưởng phòng",
+                  "Quản lý",
+                  "Giám đốc",
+                ]}
+              >
+                <OvertimeRequestPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Department Head Routes */}
           <Route
@@ -186,6 +206,26 @@ function App() {
               </ProtectedRoute>
             }
           />
+            <Route
+            path="/department-head/overtime"
+            element={
+              <ProtectedRoute
+                allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
+              >
+                <OvertimeApprovalPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/department-head/analytics"
+            element={
+              <ProtectedRoute
+                allowedRoles={["Trưởng phòng", "Quản lý", "Giám đốc"]}
+              >
+                <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Manager Routes */}
           <Route
@@ -217,6 +257,22 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["Quản lý"]}>
                 <LeavesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/overtime"
+            element={
+              <ProtectedRoute allowedRoles={["Quản lý"]}>
+                <OvertimeManagerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/analytics"
+            element={
+              <ProtectedRoute allowedRoles={["Quản lý"]}>
+                <ManagerAnalyticsPage />
               </ProtectedRoute>
             }
           />

@@ -1,0 +1,1 @@
+ALTER TABLE overtime ADD COLUMN IF NOT EXISTS content TEXT;

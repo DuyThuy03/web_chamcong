@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Eye, Filter, Search, X, Clock, User, Briefcase, CheckCircle2 } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Eye, Filter, Search, X, Clock, User, Briefcase, CheckCircle2, Edit, History as HistoryIcon } from "lucide-react";
 import { formatDate, formatTime, isInDateRange } from "../../until/helper";
 import api from "../../service/api";
+import { attendanceService } from "../../service/attendance.service";
 import { wsService } from "../../service/ws";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -28,6 +29,19 @@ const History = () => {
     const [viewingImage, setViewingImage] = useState(null);
 
     const [selectedRecord, setSelectedRecord] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingRecord, setEditingRecord] = useState(null);
+    const [editForm, setEditForm] = useState({
+        checkin_time: "",
+        checkout_time: "",
+        work_status: "",
+        work_unit: "",
+        is_valid: true,
+        note: ""
+    });
+
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [historyDetails, setHistoryDetails] = useState([]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -46,7 +60,7 @@ const History = () => {
         if (!user) return;
 
         const handleCheckin = (data) => {
-            // ❗ chỉ xử lý khi record thuộc filter hiện tại
+           
             if (!isInDateRange(data, filters)) return;
 
             setRecords((prev) => {
@@ -143,6 +157,107 @@ const History = () => {
         setPagination((prev) => ({ ...prev, page }));
     };
 
+    const handleEditClick = (record) => {
+        setEditingRecord(record);
+        setEditForm({
+            checkin_time: record.checkin_time ? new Date(record.checkin_time).toISOString().slice(0, 16) : "",
+            checkout_time: record.checkout_time ? new Date(record.checkout_time).toISOString().slice(0, 16) : "",
+            work_status: record.work_status || "",
+            work_unit: record.work_unit !== null && record.work_unit !== undefined ? record.work_unit : 0,
+            is_valid: record.is_valid !== undefined ? record.is_valid : true,
+            note: record.note || ""
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setEditForm(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingRecord) return;
+        
+        // Validation
+        const unit = parseFloat(editForm.work_unit);
+        if (isNaN(unit) || unit < 0 || unit > 1) {
+             alert("Công phải từ 0 đến 1 (ví dụ: 0, 0.5, 1)");
+             return;
+        }
+
+        try {
+            const payload = {
+                work_unit: unit,
+                is_valid: editForm.is_valid,
+                note: editForm.note
+            };
+
+            const response = await attendanceService.updateAttendance(editingRecord.id, payload);
+            
+            if (response.success) {
+                const updated = response.data;
+                 // Update UI
+                setRecords(prev => prev.map(r => r.id === updated.id ? updated : r));
+                setIsEditModalOpen(false);
+                setEditingRecord(null);
+                alert("Cập nhật thành công!");
+            } else {
+                 alert("Cập nhật thất bại: " + response.message);
+            }
+
+        } catch (error) {
+            console.error("Failed to update:", error);
+            alert("Cập nhật thất bại: " + (error.response?.data?.message || error.message));
+        }
+    };
+
+    const handleViewHistory = async (record) => {
+        try {
+            const res = await attendanceService.getHistoryDetails(record.id);
+            if (res.success) {
+                setHistoryDetails(res.data || []);
+                setHistoryModalOpen(true);
+            } else {
+                 alert("Không thể tải lịch sử");
+            }
+        } catch (err) {
+            console.error(err);
+             alert("Lỗi khi tải lịch sử");
+        }
+    };
+
+    const renderChangeDetail = (oldVal, newVal) => {
+        const changes = [];
+        const labels = {
+            work_unit: "Công",
+            is_valid: "Hợp lệ",
+            note: "Ghi chú"
+        };
+        
+        // Ensure objects
+        const oldObj = (typeof oldVal === 'string' ? JSON.parse(oldVal) : oldVal) || {};
+        const newObj = (typeof newVal === 'string' ? JSON.parse(newVal) : newVal) || {};
+
+        Object.keys(newObj).forEach(key => {
+            const o = oldObj[key];
+            const n = newObj[key];
+            if (o != n) { // Loose equality to catch number vs string diffs if any
+                changes.push(
+                    <div key={key} className="text-xs border-b border-gray-700/50 pb-1 mb-1 last:border-0">
+                        <span className="font-semibold text-[var(--accent-color)]">{labels[key] || key}:</span>{" "}
+                        <span className="text-red-400 line-through mr-1">{String(o === undefined || o === null ? '(trống)' : o)}</span>
+                        <span className="text-[var(--text-secondary)]">&rarr;</span>{" "}
+                        <span className="text-green-400 font-medium">{String(n === undefined || n === null ? '(trống)' : n)}</span>
+                    </div>
+                );
+            }
+        });
+        return changes.length > 0 ? changes : <span className="text-xs text-[var(--text-secondary)]">Thay đổi không xác định</span>;
+    };
+
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setFilters((prev) => ({ ...prev, [name]: value }));
@@ -152,6 +267,8 @@ const History = () => {
     const getWorkStatusBadge = (status) => {
         const map = {
             ON_TIME: ["Đúng giờ", "bg-green-50 text-green-700 border-green-200 ring-green-600/20"],
+            FULL_DAY: ["Đủ công", "bg-green-50 text-green-700 border-green-200 ring-green-600/20"],
+            HALF_DAY: ["Nửa công", "bg-blue-50 text-blue-700 border-blue-200 ring-blue-600/20"],
             LATE: ["Đi muộn", "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20"],
             ABSENT: ["Vắng mặt", "bg-red-50 text-red-700 border-red-200 ring-red-600/20"],
         };
@@ -265,6 +382,7 @@ const History = () => {
                                             "Nhân viên",
                                             "Trạng thái",
                                             "Địa điểm",
+                                            "Công",
                                             "Ghi chú",
                                             "Hành động",
                                         ].map((h) => (
@@ -307,6 +425,10 @@ const History = () => {
                                                 )}
                                             </td>
 
+                                            <td className="px-6 py-4 text-sm font-bold text-[var(--text-primary)] border-r border-slate-600 [.light_&]:border-slate-200">
+                                                {r.work_unit ?? "-"}
+                                            </td>
+
                                             <td className="px-6 py-4 text-sm border-r border-slate-600 [.light_&]:border-slate-200 max-w-[250px] truncate" title={r.note}>
                                                 {r.note ? (
                                                     <span className="text-[var(--text-primary)] italic">{r.note}</span>
@@ -322,6 +444,20 @@ const History = () => {
                                                  >
                                                     <Eye size={14} />
                                                     Xem chi tiết
+                                                 </button>
+                                                 <button
+                                                    onClick={() => handleEditClick(r)}
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 hover:scale-110 transition-all font-bold text-xs shadow-md active:scale-95 ml-2"
+                                                 >
+                                                    <Edit size={14} />
+                                                    Sửa
+                                                 </button>
+                                                 <button
+                                                    onClick={() => handleViewHistory(r)}
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-600 text-white hover:bg-gray-700 hover:scale-110 transition-all font-bold text-xs shadow-md active:scale-95 ml-2"
+                                                    title="Lịch sử thay đổi"
+                                                 >
+                                                    <HistoryIcon size={14} />
                                                  </button>
                                             </td>
                                         </tr>
@@ -349,12 +485,27 @@ const History = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => setSelectedRecord(r)}
-                                            className="px-3 py-1.5 bg-[var(--accent-color)] text-white rounded-lg text-xs font-bold shadow-sm"
-                                        >
-                                            Chi tiết
-                                        </button>
+                                        <div className="flex flex-col gap-2">
+                                            <button
+                                                onClick={() => setSelectedRecord(r)}
+                                                className="px-3 py-1.5 bg-[var(--accent-color)] text-white rounded-lg text-xs font-bold shadow-sm"
+                                            >
+                                                Chi tiết
+                                            </button>
+                                            <button
+                                                onClick={() => handleEditClick(r)}
+                                                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                            >
+                                                Sửa
+                                            </button>
+                                            <button
+                                                onClick={() => handleViewHistory(r)}
+                                                className="px-3 py-1.5 bg-gray-600 text-white rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-1"
+                                            >
+                                                <HistoryIcon size={12} />
+                                                LS
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col gap-2 text-sm text-[var(--text-secondary)] bg-[var(--bg-primary)] p-2 rounded-lg border border-[var(--border-color)]">
@@ -495,6 +646,115 @@ const History = () => {
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ===== EDIT MODAL ===== */}
+                        {isEditModalOpen && (
+                            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                                <div className="relative w-full max-w-md bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[90vh]">
+                                    <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+                                        <h3 className="text-lg font-bold text-[var(--text-primary)]">Chỉnh sửa chấm công</h3>
+                                        <button onClick={() => setIsEditModalOpen(false)} className="p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] rounded-full">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    <div className="p-4 space-y-4 overflow-y-auto">
+                                        {/* REMOVED TIME AND STATUS INPUTS AS PER MANAGER REQUEST */}
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Công (Unit)</label>
+                                            <input
+                                                type="number"
+                                                step="0.5"
+                                                name="work_unit"
+                                                value={editForm.work_unit}
+                                                onChange={handleEditChange}
+                                                className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-2 text-[var(--text-primary)]"
+                                            />
+                                            <p className="text-xs text-[var(--text-secondary)] mt-1">Nhập 1.0 (Full), 0.5 (Nửa), hoặc 0.0</p>
+                                        </div>
+                                        <div>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    name="is_valid"
+                                                    checked={editForm.is_valid}
+                                                    onChange={handleEditChange}
+                                                    className="w-4 h-4 rounded border-gray-300"
+                                                />
+                                                <span className="text-sm font-medium text-[var(--text-secondary)]">Hợp lệ</span>
+                                            </label>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Ghi chú</label>
+                                            <textarea
+                                                name="note"
+                                                value={editForm.note}
+                                                onChange={handleEditChange}
+                                                className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-2 text-[var(--text-primary)] h-20"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="p-4 border-t border-[var(--border-color)] flex justify-end gap-2">
+                                        <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]">
+                                            Hủy
+                                        </button>
+                                        <button onClick={handleSaveEdit} className="px-4 py-2 rounded-lg bg-[var(--accent-color)] text-white hover:bg-[var(--accent-color)]/90 font-medium">
+                                            Lưu thay đổi
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ===== HISTORY MODAL ===== */}
+                        {historyModalOpen && (
+                            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                                <div className="relative w-full max-w-3xl bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[90vh]">
+                                    <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+                                        <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                            <HistoryIcon className="w-5 h-5 text-[var(--accent-color)]" />
+                                            Lịch sử chỉnh sửa
+                                        </h3>
+                                        <button onClick={() => setHistoryModalOpen(false)} className="p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] rounded-full">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    <div className="p-4 overflow-y-auto custom-scrollbar">
+                                        {historyDetails.length === 0 ? (
+                                            <div className="text-center py-8 text-[var(--text-secondary)]">
+                                                Chưa có lịch sử chỉnh sửa nào.
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {historyDetails.map((h) => (
+                                                    <div key={h.id} className="bg-[var(--bg-primary)] rounded-xl p-4 border border-[var(--border-color)] text-sm">
+                                                        <div className="flex justify-between items-start mb-2 border-b border-[var(--border-color)] pb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs font-bold">
+                                                                    {h.editor_name?.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <span className="font-semibold text-[var(--text-primary)]">{h.editor_name}</span>
+                                                            </div>
+                                                            <span className="text-xs text-[var(--text-secondary)]">
+                                                                {formatDate(h.created_at)} {formatTime(h.created_at)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="pl-8">
+                                                            {renderChangeDetail(h.old_values, h.new_values)}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-4 border-t border-[var(--border-color)] flex justify-end">
+                                        <button onClick={() => setHistoryModalOpen(false)} className="px-4 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] font-medium">
+                                            Đóng
+                                        </button>
                                     </div>
                                 </div>
                             </div>

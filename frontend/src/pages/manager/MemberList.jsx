@@ -58,6 +58,7 @@ const MemberListPage = () => {
     password: "",
     gender: "",
     date_of_birth: "",
+    base_salary: "", // Changed to string for input handling, will parse on submit
   });
 
   // Debounce search term
@@ -209,6 +210,7 @@ const MemberListPage = () => {
           ? new Date(member.date_of_birth).toISOString().split("T")[0]
           : "",
         password: "",
+        base_salary: member.base_salary || "",
       });
       setIsEditing(true);
     } else {
@@ -224,6 +226,7 @@ const MemberListPage = () => {
         gender: "",
         date_of_birth: "",
         password: "",
+        base_salary: "",
       });
       setIsEditing(false);
     }
@@ -262,6 +265,11 @@ const MemberListPage = () => {
     if (formData.date_of_birth > Date.now()) newErrors.push("Ngày sinh không được lớn hơn ngày hiện tại.");
     if (!formData.gender) newErrors.push("Vui lòng chọn giới tính.");
     if (!formData.address.trim()) newErrors.push("Vui lòng nhập địa chỉ.");
+    
+    // Salary validation (optional) but ensure it's a number if present
+    if (formData.base_salary && isNaN(parseFloat(formData.base_salary))) {
+      newErrors.push("Lương cơ bản phải là số.");
+    }
 
     if (!isEditing && !formData.password) newErrors.push("Vui lòng nhập mật khẩu cho thành viên mới.");
 
@@ -276,6 +284,7 @@ const MemberListPage = () => {
       const payload = {
         ...formData,
         department_id: parseInt(formData.department_id),
+        base_salary: formData.base_salary ? parseFloat(formData.base_salary) : 0,
       };
 
       // Handle ID for Create vs Update
@@ -811,6 +820,7 @@ const MemberListPage = () => {
                       className="w-full pl-9 pr-8 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all appearance-none cursor-pointer text-sm"
                     >
                       <option value="">-- Chọn vai trò --</option>
+                      <option value="Quản lý">Quản lý</option>
                       <option value="Nhân viên">Nhân viên</option>
                       <option value="Trưởng phòng">Trưởng phòng</option>
                     </select>
@@ -819,6 +829,26 @@ const MemberListPage = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
                       </svg>
                     </div>
+                  </div>
+                </div>
+
+                {/* Base Salary */}
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
+                    Lương cơ bản
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] font-semibold text-sm">
+                      ₫
+                    </span>
+                    <input
+                      type="number"
+                      name="base_salary"
+                      value={formData.base_salary}
+                      onChange={handleFormChange}
+                      placeholder="Nhập mức lương..."
+                      className="w-full pl-9 pr-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-sm"
+                    />
                   </div>
                 </div>
 

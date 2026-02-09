@@ -1,8 +1,8 @@
-package models
+﻿package models
 
 import (
-    "database/sql"
-    "time"
+	"database/sql"
+	"time"
 )
 
 type LeaveRequest struct {
@@ -17,6 +17,7 @@ type LeaveRequest struct {
     Status              string         `json:"status"`
     ApprovedByID        sql.NullInt64  `json:"approved_by_id,omitempty"`
     ApprovedAt          sql.NullTime   `json:"approved_at,omitempty"`
+    Paid                bool           `json:"paid"`
     CreatedAt           time.Time      `json:"created_at"`
     UpdatedAt           time.Time      `json:"updated_at"`
 }

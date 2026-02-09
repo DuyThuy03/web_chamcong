@@ -1,4 +1,4 @@
-package models
+﻿package models
 
 type PaginationResponse struct {
 	Page       int         `json:"page"`

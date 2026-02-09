@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"log"
@@ -53,7 +53,6 @@ func (h *AuthHandler) AddUser(c *gin.Context) {
         return
     }
 
-    // Check if email already exists
     existingUser, err := h.userRepo.GetByEmail(req.Email)
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Lỗi hệ thống")
@@ -64,14 +63,12 @@ func (h *AuthHandler) AddUser(c *gin.Context) {
         return
     }
 
-    // Hash password
     hashedPassword, err := utils.HashPassword(req.Password)
     if err != nil {
         utils.ErrorResponse(c, http.StatusInternalServerError, "Không thể mã hóa mật khẩu")
         return
     }
 
-    // Create user
     defaultRole := "Nhân viên"
     defaultStatus := "Hoạt động"
     
@@ -92,7 +89,7 @@ func (h *AuthHandler) AddUser(c *gin.Context) {
     }
     if req.DateOfBirth != nil {
         user.DateOfBirth.Valid = true
-        // Parse date if needed
+     
     }
     if req.Address != nil {
         user.Address.String = *req.Address
@@ -103,14 +100,12 @@ func (h *AuthHandler) AddUser(c *gin.Context) {
         user.Gender.Valid = true
     }
 
-    // Save to database
     if err := h.userRepo.Create(user); err != nil {
         log.Println("Error creating user:", err)
         utils.ErrorResponse(c, http.StatusInternalServerError, "Không thể tạo tài khoản")
         return
     }
 
-    // Get user response
     userResponse, _ := h.userRepo.GetByID(user.ID)
 
     utils.SuccessResponse(c, http.StatusCreated, gin.H{
@@ -128,7 +123,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
     
     log.Println("Login attempt for email:", req.Email)
   
-    // Get user from database
     user, err := h.userRepo.GetByEmail(req.Email)
     if err != nil {
         log.Println("Error getting user from database:", err)
@@ -147,19 +141,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
         return
     }
 
+        if !utils.CheckPassword(req.Password, user.Password) {
+            utils.ErrorResponse(c, http.StatusUnauthorized, "Sai mật khẩu")
+            return
+        }
+
     log.Println("User found:", user.Email, "ID:", user.ID)
 
-    // // Check password
-    // if !utils.CheckPassword(req.Password, user.Password) {
-    //    log.Println("pass Nhập:", req.Password)
-    //     log.Println("pass Lưu trong DB:", user.Password)
-    //     utils.ErrorResponse(c, http.StatusUnauthorized, "Sai mật khẩu")
-    //     return
-    // }
-
-    
-
-    // Generate tokens
     var deptID *int
     if user.DepartmentID.Valid {
         id := int(user.DepartmentID.Int64)
@@ -204,7 +192,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
     log.Println("Refresh token generated successfully")
 
-    // Get full user info
     userResponse, err := h.userRepo.GetByID(user.ID)
     if err != nil {
         log.Println("Error getting user details:", err)
@@ -216,8 +203,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
     int(h.cfg.JWT.Expiry.Seconds()),
     "/",
     "",
-    true, // Secure (HTTPS)
-    true, // HttpOnly
+    true, 
+    true, 
 )
 
 c.SetCookie(
@@ -230,7 +217,6 @@ c.SetCookie(
     true,
 )
 
-// chỉ trả user
 utils.SuccessResponse(c, http.StatusOK, gin.H{
     "user": userResponse,
 })
@@ -257,7 +243,6 @@ type RefreshTokenRequest struct {
     RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-// RefreshToken - Cấp lại access token mới từ refresh token
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
     var req RefreshTokenRequest
     if err := c.ShouldBindJSON(&req); err != nil {
@@ -266,6 +251,9 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
     }
 
     log.Println("[REFRESH] Validating refresh token...")
+    log.Printf("[REFRESH] Refresh token length: %d\n", len(req.RefreshToken))
+
+  log.Println("[REFRESH] Validating refresh token...")
     log.Printf("[REFRESH] Refresh token length: %d\n", len(req.RefreshToken))
 
     // Validate refresh token

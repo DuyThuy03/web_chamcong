@@ -1,4 +1,4 @@
-package services
+﻿package services
 
 import (
 	"bytes"
@@ -44,7 +44,7 @@ func NewImageService(cloudName, apiKey, apiSecret string) (*ImageService, error)
 
 	font, err := loadVietnameseFont()
 	if err != nil {
-		// Log warning but don't fail, overlay might just not work looking good
+		
 		fmt.Printf("Warning: failed to load font: %v\n", err)
 	}
 
@@ -66,7 +66,6 @@ func (s *ImageService) ProcessAndSaveImage(
 		return "", err
 	}
 
-	// outImg := s.drawOverlay(img, info)
 	outImg := img
 
 	subDir := "checkout"
@@ -74,15 +73,13 @@ func (s *ImageService) ProcessAndSaveImage(
 		subDir = "checkin"
 	}
 
-	// Create a buffer to store the encoded image
 	buf := new(bytes.Buffer)
 
-	// Encode the image to the buffer
 	switch format {
 	case "png":
 		err = png.Encode(buf, outImg)
 	default:
-		// Default to JPEG
+		
 		err = jpeg.Encode(buf, outImg, &jpeg.Options{Quality: 90})
 	}
 
@@ -90,14 +87,11 @@ func (s *ImageService) ProcessAndSaveImage(
 		return "", err
 	}
 
-	
 	dateDir := info.Timestamp.Format("2006-01-02")
-	
-	
+
 	cleanName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	publicID := fmt.Sprintf("attendance/%s/%s/%s_%d", subDir, dateDir, cleanName, time.Now().UnixNano())
 
-	
 	uploadResult, err := s.cld.Upload.Upload(
 		context.Background(), 
 		buf, 
@@ -115,13 +109,10 @@ func (s *ImageService) ProcessAndSaveImage(
 	return uploadResult.SecureURL, nil
 }
 
-
-
 func (s *ImageService) drawOverlay(img image.Image, info OverlayInfo) *image.RGBA {
 	bounds := img.Bounds()
 	rgba := image.NewRGBA(bounds)
 	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
-
 
 	scale := float64(bounds.Dy()) / 1200
 	if scale < 0.9 {
@@ -137,7 +128,6 @@ func (s *ImageService) drawOverlay(img image.Image, info OverlayInfo) *image.RGB
 	paddingBottom := 24
 	paddingX := 16
 
-	// ===== FONT FACE (DÙNG ĐỂ ĐO CHỮ) =====
 	face := truetype.NewFace(s.font, &truetype.Options{
 		Size:    fontSize,
 		DPI:     72,
@@ -145,7 +135,6 @@ func (s *ImageService) drawOverlay(img image.Image, info OverlayInfo) *image.RGB
 	})
 	defer face.Close()
 
-	// ===== SỐ DÒNG =====
 	lines := 4
 	if info.Address != "" {
 		lines++
@@ -168,7 +157,6 @@ func (s *ImageService) drawOverlay(img image.Image, info OverlayInfo) *image.RGB
 		draw.Over,
 	)
 
-	// ===== FREETYPE CONTEXT =====
 	c := freetype.NewContext()
 	c.SetDPI(72)
 	c.SetFont(s.font)
@@ -199,8 +187,6 @@ func (s *ImageService) drawOverlay(img image.Image, info OverlayInfo) *image.RGB
 
 	return rgba
 }
-
-// ================= HELPERS =================
 
 func drawKV(
 	c *freetype.Context,
@@ -253,8 +239,6 @@ func drawWrappedText(
 
 	return y
 }
-
-// ================= FONT =================
 
 func loadVietnameseFont() (*truetype.Font, error) {
 	fonts := []string{

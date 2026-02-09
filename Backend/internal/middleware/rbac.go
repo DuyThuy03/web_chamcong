@@ -1,4 +1,4 @@
-package middleware
+﻿package middleware
 
 import (
 	"net/http"
@@ -108,7 +108,6 @@ func CheckAttendanceAccess() gin.HandlerFunc {
 
         targetUserIDStr := c.Query("user_id")
 
-      
         if targetUserIDStr == "" {
             c.Set("target_user_id", currentUserID)
             c.Next()
@@ -130,7 +129,6 @@ func CheckAttendanceAccess() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
 
 // Helper function - in production this should query the database
 func checkSameDepartment(deptID, userID int) bool {

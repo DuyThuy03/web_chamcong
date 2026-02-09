@@ -1,4 +1,4 @@
-package services
+﻿package services
 
 import (
 	
@@ -21,7 +21,6 @@ func NewLocationService(lat, lon, radius, accuracy float64) *LocationService {
     }
 }
 
-// Calculate distance between two points using Haversine formula
 func (s *LocationService) CalculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
     const earthRadius = 6371000 
 
@@ -51,7 +50,6 @@ func (s *LocationService) IsWithinOfficeRadius(latitude, longitude, accuracy flo
         longitude,
     )
 
-  
     allowedRadius := accuracy - 10.0
     if allowedRadius < s.radiusMeters {
         allowedRadius = s.radiusMeters

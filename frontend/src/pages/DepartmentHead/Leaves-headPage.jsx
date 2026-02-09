@@ -201,12 +201,27 @@ const getStatusIcon = (status) => {
     }
   };
 
+  // State to track paid decision for each pending request
+  const [paidDecisions, setPaidDecisions] = useState({});
+
+  const togglePaidDecision = (id) => {
+    setPaidDecisions(prev => ({
+        ...prev,
+        [id]: !prev[id] // Toggle between true/false
+    }));
+  };
+
   const handleApproveLeave = async (leaveId) => {
     if (!window.confirm("Bạn có chắc muốn duyệt đơn này?")) return;
+    
+    // Default to true (paid) if not explicitly set
+    const isPaid = paidDecisions[leaveId] !== undefined ? paidDecisions[leaveId] : true;
 
     try {
-      await api.put(`/leaves/${leaveId}/approve`);
-      toast.success("Đã duyệt đơn nghỉ phép");
+      await api.put(`/leaves/${leaveId}/approve`, {
+          paid: isPaid
+      });
+      toast.success(`Đã duyệt đơn (${isPaid ? 'Có lương' : 'Không lương'})`);
       fetchLeaveRequests();
       fetchCounts();
     } catch (error) {
@@ -284,7 +299,7 @@ const getStatusIcon = (status) => {
                 onClick={() => handleFilterChange(tab.key)}
                 className={`flex-1 sm:flex-none px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex items-center justify-center gap-2 rounded-md border active:scale-95 ${
                   filterStatus === tab.key
-                    ? `bg-[var(--accent-color)] text-white border-[var(--accent-color)] shadow-md hover:shadow-lg transform scale-105 hover:-translate-y-0.5`
+                    ? `bg-[var(--accent-color)] text-black border-[var(--accent-color)] shadow-md hover:shadow-lg transform scale-105 hover:-translate-y-0.5`
                     : "text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] border-transparent hover:border-[var(--accent-color)] hover:text-[var(--accent-color)] hover:shadow-md hover:-translate-y-0.5"
                 }`}
               >
@@ -344,6 +359,9 @@ const getStatusIcon = (status) => {
                       <th className="px-4 py-4 text-xs font-bold text-white [.light_&]:text-gray-700 uppercase tracking-wider border-r border-slate-600 [.light_&]:border-slate-200">
                         Trạng thái
                       </th>
+                      <th className="px-4 py-4 text-xs font-bold text-white [.light_&]:text-gray-700 uppercase tracking-wider border-r border-slate-600 [.light_&]:border-slate-200">
+                        Chế độ lương
+                      </th>
                       <th className="px-4 py-4 text-xs font-bold text-white [.light_&]:text-gray-700 uppercase tracking-wider text-right">
                         Hành động
                       </th>
@@ -351,7 +369,10 @@ const getStatusIcon = (status) => {
                   </thead>
 
                   <tbody className="">
-                    {leaveRequests.map((r) => (
+                    {leaveRequests.map((r) => {
+                      // Init state if undefined, default to true
+                      const isPaid = paidDecisions[r.id] !== undefined ? paidDecisions[r.id] : true;
+                      return (
                       <tr key={r.id} className="hover:bg-[var(--accent-color)]/10 even:bg-black/50 [.light_&]:even:bg-gray-50 border-b-2 border-slate-600 [.light_&]:border-slate-200 transition-colors">
                         <td className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200">
                           <div className="flex items-center gap-3">
@@ -397,6 +418,26 @@ const getStatusIcon = (status) => {
                             {getStatusText(r.status)}
                           </span>
                         </td>
+                        <td className="px-4 py-3 border-r border-slate-600 [.light_&]:border-slate-200 text-center">
+                            {r.status === "CHO_DUYET" ? (
+                                <label className="inline-flex items-center cursor-pointer gap-2">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer"
+                                        checked={isPaid}
+                                        onChange={() => togglePaidDecision(r.id)}
+                                    />
+                                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                    <span className={`text-xs font-medium ${isPaid ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                        {isPaid ? "Có lương" : "Không lương"}
+                                    </span>
+                                </label>
+                            ) : (
+                                <span className="text-xs text-[var(--text-secondary)] italic">
+                                   -
+                                </span>
+                            )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             {r.status === "CHO_DUYET" && (
@@ -420,7 +461,6 @@ const getStatusIcon = (status) => {
                             )}
 
                             {(r.status === "DA_HUY" ||
-                              r.status === "DA_DUYET" ||
                               r.status === "TU_CHOI") && (
                               <button
                                 onClick={() => handleDelete(r.id)}
@@ -432,14 +472,17 @@ const getStatusIcon = (status) => {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               {/* Mobile Card List */}
               <div className="lg:hidden space-y-3">
-                {leaveRequests.map((r) => (
+                {leaveRequests.map((r) => {
+                     const isPaid = paidDecisions[r.id] !== undefined ? paidDecisions[r.id] : true;
+                     return (
                   <div 
                     key={r.id} 
                     className="p-4 bg-[var(--bg-secondary)] shadow-md rounded-2xl border border-[var(--border-color)] active:scale-[0.99] transition-transform duration-100"
@@ -484,6 +527,26 @@ const getStatusIcon = (status) => {
                           "{r.reason || "Không có lý do"}"
                         </p>
                       </div>
+                      
+                      {/* Mobile Paid Toggle */}
+                       {r.status === "CHO_DUYET" && (
+                          <div className="flex items-center justify-between py-2 border-t border-b border-[var(--border-color)]">
+                            <span className="text-sm font-medium text-[var(--text-primary)]">Chế độ lương:</span>
+                            <label className="inline-flex items-center cursor-pointer gap-2">
+                                <span className={`text-xs font-medium mr-2 ${!isPaid ? 'text-[var(--text-secondary)]' : 'text-gray-400'}`}>Không</span>
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only peer"
+                                    checked={isPaid}
+                                    onChange={() => togglePaidDecision(r.id)}
+                                />
+                                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                <span className={`text-xs font-medium ${isPaid ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                    Có lương
+                                </span>
+                            </label>
+                          </div>
+                       )}
                     </div>
 
                     {r.status === "CHO_DUYET" && (
@@ -505,7 +568,6 @@ const getStatusIcon = (status) => {
                       </div>
                     )}
                     {(r.status === "DA_HUY" ||
-                      r.status === "DA_DUYET" ||
                       r.status === "TU_CHOI") && (
                       <button
                         onClick={() => handleDelete(r.id)}
@@ -515,7 +577,7 @@ const getStatusIcon = (status) => {
                       </button>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             </>
           )}

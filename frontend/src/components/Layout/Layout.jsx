@@ -181,6 +181,11 @@ const Layout = ({ children }) => {
             label: "Xin nghỉ phép",
             badge: employeeLeaveResultCount > 0 ? employeeLeaveResultCount : null
           },
+          { 
+            path: "/overtime-request", 
+            icon: TrendingUp, 
+            label: "Đăng ký OT",
+          },
         ],
         "Trưởng phòng": [
           {
@@ -188,6 +193,12 @@ const Layout = ({ children }) => {
             icon: Home,
             label: "Trang chủ",
             badge: (leaveUnreadCount || 0) + (historyUnreadCount || 0) > 0 ? (leaveUnreadCount || 0) + (historyUnreadCount || 0) : null,
+            
+          },
+          {
+            path: "/department-head/analytics",
+            icon: BarChart3,
+            label: "Thống kê",
             
           },
       
@@ -201,6 +212,11 @@ const Layout = ({ children }) => {
             icon: CheckSquare,
             label: "Duyệt đơn nghỉ phép", 
             badge: leaveUnreadCount > 0 ? leaveUnreadCount : null
+          },
+          {
+            path: "/department-head/overtime",
+            icon: TrendingUp,
+            label: "Duyệt đơn OT", 
           },
           {
             path: "/department-head/history",
@@ -219,10 +235,21 @@ const Layout = ({ children }) => {
             badge: historyUnreadCount > 0 ? historyUnreadCount : null
           },
           {
+            path: "/manager/Analytics",
+            icon: BarChart3,
+            label: "Thống kê",
+            
+          },
+          {
             path: "/manager/leave",
             icon: CheckSquare,
             label: "Duyệt đơn nghỉ phép",
             badge: leaveUnreadCount > 0 ? leaveUnreadCount : null
+          },
+          {
+            path: "/manager/overtime",
+            icon: TrendingUp,
+            label: "Duyệt đơn OT",
           },
         
           { path: "/manager/sumary", icon: FileText, label: "Thống kê báo cáo" },

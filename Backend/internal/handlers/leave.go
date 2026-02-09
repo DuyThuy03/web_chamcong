@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"database/sql"
@@ -69,7 +69,6 @@ if l.ApprovedAt.Valid {
 	approvedAt = &l.ApprovedAt.Time
 }
 
-
 	return &models.LeaveRequestResponse{
 		ID:                  l.ID,
 		UserID:              l.UserID,
@@ -95,12 +94,11 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// ===== 1. Normalize & validate TYPE =====
 	req.Type = strings.TrimSpace(strings.ToUpper(req.Type))
 
 	validTypes := map[string]bool{
-		"NGHI_PHEP": true,
-		"DI_MUON":   true,
+		"NGHI_PHEP":        true,
+		"DI_MUON":          true,
 		
 	}
 
@@ -109,7 +107,6 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// ===== 2. Parse date (RFC3339 từ FE) =====
 	fromDate, err := time.Parse(time.RFC3339, req.FromDate)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid from_date format")
@@ -127,14 +124,12 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// ===== 3. Get user =====
 	userID, _ := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	// ===== 4. Build entity =====
 	leaveRequest := &models.LeaveRequest{
 		UserID:   userID,
 		Type:     req.Type,
@@ -164,7 +159,6 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// ===== 5. Save =====
 	if err := h.leaveRepo.Create(leaveRequest); err != nil {
 		log.Println("Create leave error:", err)
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create leave request")
@@ -175,10 +169,9 @@ func (h *LeaveHandler) Create(c *gin.Context) {
 resp := MapLeaveRequestResponse(
 	leaveRequest,
 	userName,
-	nil, // chưa có người duyệt
+	nil, 
 )
 
-// ===== 7. Emit WebSocket =====
 ws.Emit(
 	h.hub,
 	ws.EventCreateLeaveRequest,
@@ -188,12 +181,10 @@ ws.Emit(
 	utils.SuccessResponse(c, http.StatusCreated, resp)
 }
 
-
 func (h *LeaveHandler) GetAll(c *gin.Context) {
 	userID, _ := middleware.GetUserID(c)
 	role, _ := middleware.GetUserRole(c)
 
-	
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
@@ -205,9 +196,7 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 	}
 	offset := (page - 1) * limit
 
-
 	status := strings.TrimSpace(c.DefaultQuery("status", ""))
-
 
 	var deptID *int
 
@@ -234,7 +223,6 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	// Fetch data
 	requests, total, err := h.leaveRepo.GetAll(
 		userID,
 		role,
@@ -261,8 +249,6 @@ func (h *LeaveHandler) GetAll(c *gin.Context) {
 	})
 }
 
-
-//
 func (h *LeaveHandler) GetByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -281,7 +267,6 @@ func (h *LeaveHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	// Check access permission
 	userID, _ := middleware.GetUserID(c)
 	role, _ := middleware.GetUserRole(c)
 
@@ -308,6 +293,10 @@ func (h *LeaveHandler) GetByID(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, request)
 }
 
+type ApproveLeaveRequest struct {
+	Paid bool `json:"paid"`
+}
+
 func (h *LeaveHandler) Approve(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -315,10 +304,15 @@ func (h *LeaveHandler) Approve(c *gin.Context) {
 		return
 	}
 
+	var reqBody ApproveLeaveRequest
+	if err := c.ShouldBindJSON(&reqBody); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
 	approverID, _ := middleware.GetUserID(c)
 	role, _ := middleware.GetUserRole(c)
 
-	// Check if request exists
 	request, err := h.leaveRepo.GetByID(id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request")
@@ -335,7 +329,6 @@ func (h *LeaveHandler) Approve(c *gin.Context) {
 		return
 	}
 
-	// Verify approval permission
 	if role == "Trưởng phòng" {
 		requestUser, err := h.userRepo.GetByID(request.UserID)
 		if err != nil || requestUser == nil {
@@ -350,12 +343,12 @@ func (h *LeaveHandler) Approve(c *gin.Context) {
 		}
 	}
 
-	err = h.leaveRepo.UpdateStatus(id, "DA_DUYET", approverID)
+	err = h.leaveRepo.UpdateStatus(id, "DA_DUYET", approverID, &reqBody.Paid)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to approve leave request")
 		return
 	}
-	updatedRequest, err := h.leaveRepo.GetByID(id) // LeaveRequestResponse
+	updatedRequest, err := h.leaveRepo.GetByID(id) 
 if err != nil || updatedRequest == nil {
 	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to load updated leave request")
 	return
@@ -383,7 +376,6 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 	approverID, _ := middleware.GetUserID(c)
 	role, _ := middleware.GetUserRole(c)
 
-	// Check if request exists
 	request, err := h.leaveRepo.GetByID(id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request")
@@ -400,7 +392,6 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 		return
 	}
 
-	// Verify rejection permission
 	if role == "Trưởng phòng" {
 		requestUser, err := h.userRepo.GetByID(request.UserID)
 		if err != nil || requestUser == nil {
@@ -415,19 +406,16 @@ func (h *LeaveHandler) Reject(c *gin.Context) {
 		}
 	}
 
-	err = h.leaveRepo.UpdateStatus(id, "TU_CHOI", approverID)
+	err = h.leaveRepo.UpdateStatus(id, "TU_CHOI", approverID, nil)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to reject leave request")
 		return
 	}
-	updatedRequest, err := h.leaveRepo.GetByID(id) // LeaveRequestResponse
+	updatedRequest, err := h.leaveRepo.GetByID(id) 
 if err != nil || updatedRequest == nil {
 	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to load updated leave request")
 	return
 }
-
-// approverName := c.GetString("user_name")
-// updatedRequest.ApprovedByName = &approverName
 
 ws.Emit(
 	h.hub,
@@ -435,10 +423,9 @@ ws.Emit(
 	updatedRequest,
 )
 
-
 	utils.SuccessResponse(c, http.StatusOK, updatedRequest)
 }
-//hàm hủy yêu cầu nghỉ phép
+
 func (h *LeaveHandler) Cancel(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -447,12 +434,8 @@ func (h *LeaveHandler) Cancel(c *gin.Context) {
 		}	
 		userID, _ := middleware.GetUserID(c)
 
-		// Check if request exists
 		request, err := h.leaveRepo.GetByID(id)
-		// if err != nil {
-		// 	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request"+ err.Error())
-		// 	return
-		// }	
+
 		if request == nil {
 			utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
 			return
@@ -470,14 +453,11 @@ func (h *LeaveHandler) Cancel(c *gin.Context) {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to cancel leave request")
 			return
 		}
-		updatedRequest, err := h.leaveRepo.GetByID(id) // LeaveRequestResponse
+		updatedRequest, err := h.leaveRepo.GetByID(id) 
 if err != nil || updatedRequest == nil {
 	utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to load updated leave request")
 	return
 }
-
-// approverName := c.GetString("user_name")
-// updatedRequest.ApprovedByName = &approverName
 
 ws.Emit(
 	h.hub,
@@ -487,16 +467,14 @@ ws.Emit(
 
 	utils.SuccessResponse(c, http.StatusOK, updatedRequest)
 	}
-//xóa yêu cầu nghỉ phép
+
 func (h *LeaveHandler) Delete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))	
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave request ID")
 		return
 	}
-	// userID, _ := middleware.GetUserID(c)
 
-	// Check if request exists
 	request, err := h.leaveRepo.GetByID(id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave request")
@@ -506,11 +484,8 @@ func (h *LeaveHandler) Delete(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusNotFound, "Leave request not found")
 		return
 	}
-	// if request.UserID != userID {
-	// 	utils.ErrorResponse(c, http.StatusForbidden, "You can only delete your own leave requests")
-	// 	return
-	// }	
-	if request.Status != "DA_HUY" && request.Status != "TU_CHOI" && request.Status !="DA_DUYET" {
+
+	if  request.Status != "TU_CHOI" &&  request.Status != "DA_HUY" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Only cancelled or rejected requests can be deleted")
 		return
 	}	

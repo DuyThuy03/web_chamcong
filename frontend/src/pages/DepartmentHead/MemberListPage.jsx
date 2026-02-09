@@ -58,6 +58,7 @@ const MemberListPage = () => {
     password: "",
     gender: "",
     date_of_birth: "",
+    base_salary: "",
   });
 
   // --- Effects ---
@@ -192,6 +193,7 @@ const MemberListPage = () => {
         address: member.address || "",
         gender: member.gender || "",
         date_of_birth: member.date_of_birth || "",
+        base_salary: member.base_salary || "",
         password: "",
       });
       setIsEditing(true);
@@ -206,6 +208,7 @@ const MemberListPage = () => {
         address: "",
         gender: "",
         date_of_birth: "",
+        base_salary: "",
         password: "",
       });
       setIsEditing(false);
@@ -244,8 +247,16 @@ const MemberListPage = () => {
     if (formData.date_of_birth > Date.now()) newErrors.push("Ngày sinh không được lớn hơn ngày hiện tại.");
     if (!formData.gender) newErrors.push("Vui lòng chọn giới tính.");
     if (!formData.address.trim()) newErrors.push("Vui lòng nhập địa chỉ.");
+    
+    // Salary validation (optional)
+    if (formData.base_salary && isNaN(parseFloat(formData.base_salary))) {
+      newErrors.push("Lương cơ bản phải là số.");
+    }
 
-    const payload = { ...formData };
+    const payload = { 
+        ...formData,
+        base_salary: formData.base_salary ? parseFloat(formData.base_salary) : 0,
+    };
 
     if (!isEditing && !payload.password) newErrors.push("Vui lòng nhập mật khẩu cho thành viên mới.");
     if (isEditing && !payload.password) {
@@ -803,6 +814,26 @@ const MemberListPage = () => {
                     <option value="Nữ">Nữ</option>
                     <option value="Khác">Khác</option>
                   </select>
+                </div>
+
+                {/* Base Salary */}
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
+                    Lương cơ bản
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] font-semibold text-sm">
+                      ₫
+                    </span>
+                    <input
+                      type="number"
+                      name="base_salary"
+                      value={formData.base_salary}
+                      onChange={handleFormChange}
+                      placeholder="Nhập mức lương..."
+                      className="w-full pl-9 pr-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] outline-none transition-all placeholder-gray-500 text-sm"
+                    />
+                  </div>
                 </div>
 
                 {/* Status */}

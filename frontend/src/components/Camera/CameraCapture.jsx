@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, X, RefreshCw, ZoomIn, MapPin, Clock, User, Monitor } from 'lucide-react';
-import { formatTime, getDeviceInfo } from '../../until/helper'; // Ensure you have this or standard date formatting
+import { formatTime, getDeviceInfo } from '../../until/helper'; 
+import api from '../../service/api';
 
 const CameraCapture = ({ onCapture, onCancel, userName, currentAddress }) => {
   const videoRef = useRef(null);
@@ -11,8 +12,10 @@ const CameraCapture = ({ onCapture, onCancel, userName, currentAddress }) => {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [facingMode, setFacingMode] = useState('user'); // user | environment
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [timeOffset, setTimeOffset] = useState(0);
   const [deviceInfoString, setDeviceInfoString] = useState('');
 
+  // 1. Camera Effect
   useEffect(() => {
     startCamera();
     
@@ -20,14 +23,47 @@ const CameraCapture = ({ onCapture, onCancel, userName, currentAddress }) => {
     const info = getDeviceInfo();
     setDeviceInfoString(`${info.os} - ${info.browser}`);
 
-    // Update clock for overlay
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-
     return () => {
         stopCamera();
-        clearInterval(timer);
     };
   }, [facingMode]);
+
+  // 2. Time Sync Effect
+  useEffect(() => {
+    fetchServerTime();
+  }, []);
+
+  // 3. Clock Timer Effect
+  useEffect(() => {
+    const timer = setInterval(() => {
+        // Use functional state update or just read the offset from closure?
+        // timeOffset is in dependency, so closure is fresh.
+        setCurrentTime(new Date(Date.now() + timeOffset));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeOffset]);
+
+  const fetchServerTime = async () => {
+    try {
+        const start = Date.now();
+        const res = await api.get('/health');
+        const end = Date.now();
+        const latency = (end - start) / 2;
+        
+        if (res.data && res.data.time) {
+            const serverTime = new Date(res.data.time).getTime();
+          
+            const offset = (serverTime + latency) - end; 
+            
+            const calculatedOffset = (serverTime + latency) - end;
+            setTimeOffset(calculatedOffset);
+            setCurrentTime(new Date(Date.now() + calculatedOffset));
+        }
+    } catch (err) {
+        console.error("Failed to sync time:", err);
+    }
+  };
 
   const startCamera = async () => {
     setIsCameraReady(false);
@@ -35,9 +71,9 @@ const CameraCapture = ({ onCapture, onCancel, userName, currentAddress }) => {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
-          width: { ideal: 1920 }, // Higher res for better quality
+          width: { ideal: 1920 }, 
           height: { ideal: 1080 },
-          aspectRatio: { ideal: 1.7777777778 } // 16:9
+          aspectRatio: { ideal: 1.7777777778 } 
         },
         audio: false,
       });
@@ -76,50 +112,41 @@ const CameraCapture = ({ onCapture, onCancel, userName, currentAddress }) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Video dimensions
     const vW = video.videoWidth;
     const vH = video.videoHeight;
     
-    // Target Aspect Ratio 3:4 (Portrait)
+    
     const targetRatio = 3 / 4;
     
-    // Calculate crop dimensions to fit 3:4
     let cropW, cropH, cropX, cropY;
     
-    // Logic: maximize area while maintaining aspect ratio
     if (vW / vH > targetRatio) {
-        // Video is wider/flatter than target -> crop width (sides) for landscape-ish input
-        // BUT if it's strictly landscape (16:9) and we want portrait 3:4 output, this cuts A LOT.
-        // Assuming we want to capture the center.
+        
         cropH = vH;
         cropW = vH * targetRatio;
         cropX = (vW - cropW) / 2;
         cropY = 0;
     } else {
-        // Video is taller/skinnier than target -> crop height (top/bottom)
+
         cropW = vW;
         cropH = vW / targetRatio;
         cropX = 0;
         cropY = (vH - cropH) / 2;
     }
 
-    // Set canvas to the cropped size (High Resolution)
     canvas.width = cropW;
     canvas.height = cropH;
 
     const ctx = canvas.getContext('2d');
     
-    // 1. Draw Cropped Video Frame
-    // Mirror if using front camera
+   
     if (facingMode === 'user') {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
     }
     
-    // drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
     ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
     
-    // Reset transform
     if (facingMode === 'user') {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }

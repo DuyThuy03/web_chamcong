@@ -1,4 +1,4 @@
-package utils
+﻿package utils
 
 import (
 	"errors"
@@ -21,9 +21,7 @@ type JWTClaims struct {
 func GenerateToken(userID int, email, name, role string, departmentID *int, secret string, expiry time.Duration) (string, error) {
     now := time.Now()
     expiresAt := now.Add(expiry)
-    
-    
-    
+
     claims := JWTClaims{
         UserID:       userID,
         Email:        email,
@@ -48,8 +46,7 @@ func GenerateToken(userID int, email, name, role string, departmentID *int, secr
 }
 
 func ValidateToken(tokenString, secret string) (*JWTClaims, error) {
-  
-    
+
     token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
        
         if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -64,10 +61,8 @@ func ValidateToken(tokenString, secret string) (*JWTClaims, error) {
         return nil, fmt.Errorf("parse error: %w", err)
     }
 
- 
     if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
 
-        
         if claims.ExpiresAt != nil && claims.ExpiresAt.Before(time.Now()) {
             log.Printf("[JWT] Token has expired!\n")
             return nil, errors.New("token expired")
@@ -76,6 +71,5 @@ func ValidateToken(tokenString, secret string) (*JWTClaims, error) {
         return claims, nil
     }
 
- 
     return nil, errors.New("invalid token claims")
 }

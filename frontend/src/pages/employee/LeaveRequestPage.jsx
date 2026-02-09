@@ -493,7 +493,7 @@ const LeaveRequestPage = () => {
                                     Hủy
                                  </button>
                               )}
-                              {(req.status === 'DA_HUY' || req.status === 'DA_DUYET' || req.status === 'TU_CHOI') && (
+                              {(req.status === 'DA_HUY' || req.status === 'TU_CHOI') && (
                                  <button 
                                     onClick={() => handleDelete(req.id)}
                                     className="px-5 py-2.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white text-sm font-bold transition-all shadow-sm rounded-lg hover:shadow-lg hover:scale-110 hover:-translate-y-1 active:translate-y-0 active:scale-90 flex items-center justify-center gap-2"
@@ -554,7 +554,7 @@ const LeaveRequestPage = () => {
                                     <XCircle size={14} /> Hủy đơn
                                  </button>
                               )}
-                              {(req.status === 'DA_HUY' || req.status === 'DA_DUYET' || req.status === 'TU_CHOI') && (
+                              {(req.status === 'DA_HUY' || req.status === 'TU_CHOI') && (
                                  <button 
                                     onClick={() => handleDelete(req.id)}
                                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"

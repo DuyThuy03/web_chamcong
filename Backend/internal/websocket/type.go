@@ -1,4 +1,4 @@
-package ws
+﻿package ws
 
 const (
 	EventAttendanceCheckin   = "ATTENDANCE_CHECKIN"

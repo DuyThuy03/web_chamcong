@@ -1,4 +1,4 @@
-package services
+﻿package services
 
 import (
 	"attendance-system/internal/models"
@@ -26,25 +26,22 @@ func NewDashboardService(
 }
 
 func (s *dashboardService) GetDepartmentDashboard(departmentID int) (*models.DepartmentDashboardResponse, error) {
-	// Get summary
+	
 	summary, err := s.dashboardRepo.GetDepartmentSummary(departmentID)
 	if err != nil {
 		return nil, err
 	}
-	
-	// Get today's attendance
+
 	checkIORecords, err := s.attendanceRepo.GetTodayAttendanceByDepartment(departmentID, time.Now().Format("2006-01-02"))
 	if err != nil {
 		return nil, err
 	}
-	
-	// Get pending leave requests
+
 	pendingLeaves, err := s.dashboardRepo.GetPendingLeaveRequests(departmentID)
 	if err != nil {
 		return nil, err
 	}
-	
-	// Convert CheckIOResponse to TodayAttendanceResponse
+
 	todayAttendance := make([]models.TodayAttendanceResponse, 0, len(checkIORecords))
 	for _, record := range checkIORecords {
 		if record != nil {
@@ -60,8 +57,7 @@ func (s *dashboardService) GetDepartmentDashboard(departmentID int) (*models.Dep
 			})
 		}
 	}
-	
-	// Ensure arrays are not nil
+
 	if pendingLeaves == nil {
 		pendingLeaves = []models.PendingLeaveRequest{}
 	}
